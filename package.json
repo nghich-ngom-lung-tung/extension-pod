@@ -1,0 +1,11 @@
+{
+  "private": true,
+  "scripts": {
+    "ci": "npm run validate:versions && npm run validate:extensions",
+    "validate:versions": "node scripts/validate-versions.js",
+    "validate:extensions": "node scripts/validate-extensions.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
