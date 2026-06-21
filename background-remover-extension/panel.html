@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Background Remover Pro - made by Sfrankie</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body class="iframe-body">
+  <!-- Ambient gold orbs behind the frosted glass surfaces -->
+  <div class="bg-orbs" aria-hidden="true"></div>
+
+  <!-- Top status bar -->
+  <header class="topbar glass">
+    <div class="brand">
+      <img src="assets/icon48.png" alt="Logo" class="brand-icon">
+      <div class="brand-copy">
+        <span class="brand-name">BG <b>REMOVER</b> PRO</span>
+        <span class="brand-sub">made by Sfrankie <span class="version-badge">v1.0</span></span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="status-pill">
+        <span class="status-indicator idle" id="conn-dot"></span>
+        <span class="val" id="conn-text">SẴN SÀNG</span>
+      </div>
+      <div id="lang-toggle" class="lang-toggle" role="group" aria-label="Language">
+        <button type="button" class="lang-opt" data-lang="vi">VI</button>
+        <button type="button" class="lang-opt" data-lang="en">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="form">
+    <!-- Drag & Drop Zone -->
+    <div class="form-group">
+      <input type="file" id="file-input" accept="image/*" multiple style="display: none;">
+      <div id="dropzone" class="dropzone glass" role="button" tabindex="0" aria-label="Add images">
+        <div class="dropzone-content">
+          <div class="upload-glow-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-upload-cloud">
+              <polyline points="16 16 12 12 8 16"></polyline>
+              <line x1="12" y1="12" x2="12" y2="21"></line>
+              <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+              <polyline points="16 16 12 12 8 16"></polyline>
+            </svg>
+          </div>
+          <p class="dropzone-title" data-i18n="dropzone.title">DRAG &amp; DROP IMAGES</p>
+          <p class="dropzone-sub" data-i18n="dropzone.sub">or click to add more files anytime</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Processing Queue -->
+    <div id="queue-card" class="queue-panel glass hidden">
+      <div class="queue-header">
+        <div class="cmd-line">
+          <span class="prompt">▸</span>
+          <span class="cmd-label" data-i18n="queue.heading">PROCESSING QUEUE</span>
+          <span id="queue-count" class="queue-count">0</span>
+        </div>
+        <button id="clear-queue-btn" class="queue-clear-btn" type="button" data-i18n="queue.clear">CLEAR</button>
+      </div>
+      <div id="queue-list" class="queue-list"></div>
+    </div>
+
+    <!-- Configuration (collapsible) -->
+    <div class="settings-card glass">
+      <button type="button" id="settings-toggle" class="settings-head" aria-expanded="true">
+        <span class="settings-title"><span class="gear">⚙</span> <span data-i18n="settings.title">SETTINGS</span></span>
+        <span class="settings-chevron">⌄</span>
+      </button>
+      <div class="settings-body">
+        <!-- Output Resize -->
+        <div class="form-group">
+          <div class="cmd-line">
+            <span class="prompt">▸</span>
+            <span class="cmd-label" data-i18n="label.resolution">POD EXPORT RESOLUTION</span>
+          </div>
+          <div class="field-row">
+            <div class="resolution-input-wrap">
+              <span class="res-lbl">W:</span>
+              <input type="number" id="target-width" value="3000" min="100" max="10000">
+              <span class="res-unit">px</span>
+            </div>
+            <div class="resolution-input-wrap">
+              <span class="res-lbl">H:</span>
+              <input type="number" id="target-height" value="3600" min="100" max="10000">
+              <span class="res-unit">px</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Execute Button -->
+    <button id="start-btn" class="execute-btn" disabled>
+      <span class="btn-ic">⚡</span>
+      <span data-i18n="btn.execute">EXECUTE QUEUE</span>
+    </button>
+
+    <!-- Execution Logs & Progress Console -->
+    <div id="process-card" class="result-panel glass hidden">
+      <div class="cmd-line">
+        <span class="prompt">▸</span>
+        <span class="cmd-label" id="process-status-text">RUNNING AUTOMATION...</span>
+        <span class="cursor-blink" id="process-percent-text" style="margin-left: auto;">0%</span>
+      </div>
+      <div class="progress-track">
+        <div id="progress-bar" class="progress-fill" style="width: 0%;"></div>
+      </div>
+      <div class="log-console" id="log-console">
+        <!-- Logs will print here -->
+      </div>
+    </div>
+
+    <!-- Results Preview Section -->
+    <div id="result-card" class="result-panel glass hidden">
+      <div class="cmd-line">
+        <span class="prompt">▸</span>
+        <span class="cmd-label" data-i18n="label.output">OUTPUT PREVIEW</span>
+      </div>
+      <div class="result-preview-wrapper"></div>
+      <button id="download-btn" class="execute-btn download-btn">
+        <span data-i18n="btn.download">DOWNLOAD RESIZED PNG</span>
+      </button>
+      <button id="download-all-btn" class="execute-btn download-all-btn" disabled>
+        <span data-i18n="btn.downloadAll">DOWNLOAD ALL COMPLETED</span>
+      </button>
+    </div>
+  </div>
+  <script src="src/i18n.js"></script>
+  <script src="src/remove-background.js"></script>
+  <script src="panel.js"></script>
+</body>
+</html>
