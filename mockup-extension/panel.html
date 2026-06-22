@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Mockup Luxury Pro - made by Sfrankie</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body class="iframe-body">
+  <div class="bg-orbs" aria-hidden="true"></div>
+
+  <header class="topbar glass">
+    <div class="brand">
+      <img src="assets/icon48.png" alt="Logo" class="brand-icon">
+      <div class="brand-copy">
+        <span class="brand-name">MOCKUP <b>LUXURY</b> PRO</span>
+        <span class="brand-sub">made by Sfrankie <span class="version-badge">v1.0</span></span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="status-pill">
+        <span class="status-indicator idle" id="conn-dot"></span>
+        <span class="val" id="conn-text">SẴN SÀNG</span>
+      </div>
+      <div id="lang-toggle" class="lang-toggle" role="group" aria-label="Language">
+        <button type="button" class="lang-opt" data-lang="vi">VI</button>
+        <button type="button" class="lang-opt" data-lang="en">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="form">
+    <section class="source-grid">
+      <input type="file" id="design-input" accept="image/*" style="display:none;">
+      <input type="file" id="template-input" accept="image/*" style="display:none;">
+
+      <button id="design-dropzone" class="dropzone source-dropzone glass" type="button">
+        <div class="dropzone-content">
+          <div class="upload-glow-icon">🎨</div>
+          <p class="dropzone-title" data-i18n="source.designTitle">CHỌN THIẾT KẾ</p>
+          <p class="dropzone-sub" data-i18n="source.designSub">kéo thả artwork hoặc click chọn</p>
+          <img id="design-preview" class="source-preview hidden" alt="Design preview">
+        </div>
+      </button>
+
+      <button id="template-dropzone" class="dropzone source-dropzone glass optional" type="button">
+        <div class="dropzone-content">
+          <div class="upload-glow-icon">👕</div>
+          <p class="dropzone-title" data-i18n="source.templateTitle">PHÔI MOCKUP</p>
+          <p class="dropzone-sub" data-i18n="source.templateSub">tuỳ chọn: áo/người mẫu/sản phẩm trống</p>
+          <img id="template-preview" class="source-preview hidden" alt="Template preview">
+        </div>
+      </button>
+    </section>
+
+    <div class="settings-card glass">
+      <button type="button" id="settings-toggle" class="settings-head" aria-expanded="true">
+        <span class="settings-title"><span class="gear">⚙</span> <span data-i18n="settings.title">THIẾT LẬP MOCKUP</span></span>
+        <span class="settings-chevron">⌄</span>
+      </button>
+
+      <div class="settings-body">
+        <div class="form-group">
+          <div class="cmd-line">
+            <span class="prompt">▸</span>
+            <span class="cmd-label" data-i18n="label.mode">CHẾ ĐỘ MOCKUP</span>
+          </div>
+          <select id="mode-select" class="select-field">
+            <option value="auto" data-i18n="mode.auto">Auto Luxury Mockup</option>
+            <option value="template" data-i18n="mode.template">Apply To Template</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <div class="cmd-line">
+            <span class="prompt">▸</span>
+            <span class="cmd-label" data-i18n="label.count">SỐ LƯỢNG MOCKUP</span>
+          </div>
+          <div class="count-grid">
+            <button type="button" class="count-card active" data-count="1">1<span data-i18n="count.one">ảnh</span></button>
+            <button type="button" class="count-card" data-count="3">3<span data-i18n="count.multi">ảnh</span></button>
+            <button type="button" class="count-card" data-count="5">5<span data-i18n="count.multi">ảnh</span></button>
+            <label class="count-card custom-count">
+              <span data-i18n="count.custom">Tuỳ nhập</span>
+              <input type="number" id="custom-count" value="7" min="1" max="10">
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="cmd-line">
+            <span class="prompt">▸</span>
+            <span class="cmd-label" data-i18n="label.product">LOẠI SẢN PHẨM</span>
+          </div>
+          <select id="product-select" class="select-field">
+            <option value="auto" data-i18n="product.auto">Auto Detect</option>
+            <option value="tshirt" data-i18n="product.tshirt">T-Shirt</option>
+            <option value="oversizedTshirt" data-i18n="product.oversizedTshirt">Oversized T-Shirt</option>
+            <option value="hoodie" data-i18n="product.hoodie">Hoodie</option>
+            <option value="sweatshirt" data-i18n="product.sweatshirt">Sweatshirt</option>
+            <option value="longSleeve" data-i18n="product.longSleeve">Long Sleeve Shirt</option>
+            <option value="polo" data-i18n="product.polo">Polo Shirt</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <div class="cmd-line">
+            <span class="prompt">▸</span>
+            <span class="cmd-label" data-i18n="label.color">MÀU ÁO / SẢN PHẨM</span>
+          </div>
+          <select id="color-select" class="select-field">
+            <option value="keep" data-i18n="color.keep">Keep template color</option>
+            <option value="black" data-i18n="color.black">Black</option>
+            <option value="white" data-i18n="color.white">White</option>
+            <option value="navy" data-i18n="color.navy">Navy Blue</option>
+            <option value="heatherGrey" data-i18n="color.heatherGrey">Heather Grey</option>
+            <option value="red" data-i18n="color.red">Red</option>
+            <option value="royalBlue" data-i18n="color.royalBlue">Royal Blue</option>
+            <option value="forestGreen" data-i18n="color.forestGreen">Forest Green</option>
+            <option value="pink" data-i18n="color.pink">Pink</option>
+            <option value="yellow" data-i18n="color.yellow">Yellow</option>
+            <option value="custom" data-i18n="color.custom">Custom Color</option>
+          </select>
+          <input id="custom-color" class="text-field hidden" placeholder="e.g. vintage cream, dusty rose">
+          <div class="swatch-row" id="swatch-row" aria-label="Color swatches"></div>
+        </div>
+
+        <div class="form-group">
+          <div class="cmd-line">
+            <span class="prompt">▸</span>
+            <span class="cmd-label" data-i18n="label.scene">SCENE STYLE</span>
+          </div>
+          <select id="scene-select" class="select-field">
+            <option value="luxuryStudio" data-i18n="scene.luxuryStudio">Luxury Studio</option>
+            <option value="ecommerce" data-i18n="scene.ecommerce">Minimal E-commerce</option>
+            <option value="lifestyleModel" data-i18n="scene.lifestyleModel">Lifestyle Model</option>
+            <option value="urbanStreet" data-i18n="scene.urbanStreet">Urban Street</option>
+            <option value="flatLay" data-i18n="scene.flatLay">Premium Flat Lay</option>
+            <option value="holidayGift" data-i18n="scene.holidayGift">Holiday Gift</option>
+            <option value="socialAd" data-i18n="scene.socialAd">Social Media Ad</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <div class="cmd-line">
+            <span class="prompt">▸</span>
+            <span class="cmd-label" data-i18n="label.context">MÔ TẢ BỔ SUNG</span>
+          </div>
+          <textarea id="custom-context" class="text-field context-field" data-i18n-placeholder="placeholder.context" placeholder="Ví dụ: urban street, professional editorial photography"></textarea>
+        </div>
+
+        <div class="form-group">
+          <div class="cmd-line">
+            <span class="prompt">▸</span>
+            <span class="cmd-label" data-i18n="label.resolution">ĐỘ PHÂN GIẢI XUẤT</span>
+          </div>
+          <div class="field-row">
+            <div class="resolution-input-wrap">
+              <span class="res-lbl">W:</span>
+              <input type="number" id="target-width" value="3000" min="100" max="10000">
+              <span class="res-unit">px</span>
+            </div>
+            <div class="resolution-input-wrap">
+              <span class="res-lbl">H:</span>
+              <input type="number" id="target-height" value="3000" min="100" max="10000">
+              <span class="res-unit">px</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button id="add-queue-btn" class="execute-btn add-btn" disabled>
+      <span class="btn-ic">＋</span>
+      <span data-i18n="btn.addQueue">THÊM VÀO HÀNG ĐỢI</span>
+    </button>
+
+    <div id="queue-card" class="queue-panel glass hidden">
+      <div class="queue-header">
+        <div class="cmd-line">
+          <span class="prompt">▸</span>
+          <span class="cmd-label" data-i18n="queue.heading">HÀNG CHỜ MOCKUP</span>
+          <span id="queue-count" class="queue-count">0</span>
+        </div>
+        <button id="clear-queue-btn" class="queue-clear-btn" type="button" data-i18n="queue.clear">XÓA</button>
+      </div>
+      <div id="queue-list" class="queue-list"></div>
+    </div>
+
+    <button id="start-btn" class="execute-btn" disabled>
+      <span class="btn-ic">⚡</span>
+      <span data-i18n="btn.execute">TẠO MOCKUP HÀNG CHỜ</span>
+    </button>
+
+    <div id="process-card" class="result-panel glass hidden">
+      <div class="cmd-line">
+        <span class="prompt">▸</span>
+        <span class="cmd-label" id="process-status-text">RUNNING AUTOMATION...</span>
+        <span class="cursor-blink" id="process-percent-text" style="margin-left:auto;">0%</span>
+      </div>
+      <div class="progress-track">
+        <div id="progress-bar" class="progress-fill" style="width:0%;"></div>
+      </div>
+      <div class="log-console" id="log-console"></div>
+    </div>
+
+    <div id="result-card" class="result-panel glass hidden">
+      <div class="cmd-line">
+        <span class="prompt">▸</span>
+        <span class="cmd-label" data-i18n="label.output">XEM TRƯỚC MOCKUP</span>
+      </div>
+      <div class="result-preview-wrapper"></div>
+      <button id="download-btn" class="execute-btn download-btn">
+        <span data-i18n="btn.download">TẢI MOCKUP PNG</span>
+      </button>
+      <button id="download-all-btn" class="execute-btn download-all-btn" disabled>
+        <span data-i18n="btn.downloadAll">TẢI TẤT CẢ MOCKUP</span>
+      </button>
+    </div>
+  </div>
+
+  <script src="src/i18n.js"></script>
+  <script src="src/mockup.js"></script>
+  <script src="panel.js"></script>
+</body>
+</html>

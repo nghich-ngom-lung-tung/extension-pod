@@ -1,12 +1,13 @@
-# Mockup Extension
+# Mockup Luxury Pro
 
-Workspace placeholder for the mockup automation extension.
+Chrome extension for sending design artwork and optional blank apparel templates
+to the Sfrankie GPT Mockup Luxury Custom GPT.
 
-Planned structure can mirror the existing extension folders:
+## Current MVP
 
-- `manifest.json`
-- `panel.html`
-- `panel.css`
-- `panel.js`
-- `src/`
-- `assets/`
+- Design image input.
+- Optional blank template/model/product photo input.
+- Auto Luxury and Apply To Template modes.
+- Apparel product type, shirt/product color, scene style, custom context, and
+  mockup count controls.
+- Queue, progress logs, result gallery, and PNG download/download all.
