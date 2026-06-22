@@ -30,7 +30,14 @@
 
     'count.one': { vi: 'ảnh', en: 'image' },
     'count.multi': { vi: 'ảnh', en: 'images' },
+    'count.hero': { vi: 'hero', en: 'hero' },
+    'count.listing': { vi: 'listing set', en: 'listing set' },
+    'count.proSet': { vi: 'pro set', en: 'pro set' },
     'count.custom': { vi: 'Tuỳ nhập', en: 'Custom' },
+    'hint.countSet': {
+      vi: '3 ảnh: người mẫu + áo gấp/packaging + áo riêng. 5+ ảnh sẽ tăng thêm model/lifestyle angles.',
+      en: '3 images: model + folded/packaging + product-only. 5+ adds more model/lifestyle angles.'
+    },
 
     'product.auto': { vi: 'Auto Detect', en: 'Auto Detect' },
     'product.tshirt': { vi: 'T-Shirt', en: 'T-Shirt' },

@@ -481,6 +481,13 @@ body.iframe-body {
   text-transform: uppercase;
 }
 
+.field-hint {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
 .count-card:hover,
 .count-card.active {
   border-color: var(--gold);

@@ -39,6 +39,26 @@
     return String(value || '').replace(/\s+/g, ' ').trim();
   }
 
+  function shotPlanForCount(count) {
+    if (count <= 1) {
+      return 'Create 1 strong hero mockup, preferably an adult model wearing the apparel unless the provided template indicates a different style.';
+    }
+
+    if (count === 2) {
+      return 'Create 2 distinct shots: 1 adult model-worn mockup and 1 clean product-only or folded flat-lay mockup.';
+    }
+
+    if (count === 3) {
+      return 'Create exactly 3 distinct shots: 1 adult model-worn mockup, 1 folded/packaging premium flat-lay shot, and 1 clean product-only apparel shot.';
+    }
+
+    if (count <= 5) {
+      return 'Create a balanced listing set: 2 model/lifestyle shots with different angles, 1 folded or packaging flat-lay shot, 1 hanger/flat-lay/detail shot, and 1 clean product-only apparel shot.';
+    }
+
+    return 'Create a full listing set: increase model/lifestyle variety first, then include folded/packaging, flat-lay/detail, and clean product-only shots. Make every image distinct and commercially useful.';
+  }
+
   function buildPrompt(task = {}) {
     const mode = task.mode === MODE_TEMPLATE ? MODE_TEMPLATE : MODE_AUTO;
     const count = Math.max(1, Math.min(10, Number(task.count) || 1));
@@ -55,7 +75,8 @@
       `Images count: ${count}.`,
       `Product type: ${product}.`,
       `Product color: ${color}.`,
-      `Scene style: ${scene}.`
+      `Scene style: ${scene}.`,
+      `Shot plan: ${shotPlanForCount(count)}`
     ];
 
     if (mode === MODE_TEMPLATE) {
