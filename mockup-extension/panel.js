@@ -245,6 +245,26 @@ function addCurrentJobToQueue() {
     return;
   }
 
+  const duplicate = queueItems.some(item => (
+    item.status !== 'error' &&
+    item.designDataUrl === selectedDesign.dataUrl &&
+    (item.templateDataUrl || null) === (selectedTemplate?.dataUrl || null) &&
+    item.mode === settings.mode &&
+    item.count === settings.count &&
+    item.productType === settings.productType &&
+    item.productColor === settings.productColor &&
+    item.customColor === settings.customColor &&
+    item.sceneStyle === settings.sceneStyle &&
+    item.customContext === settings.customContext &&
+    item.outputWidth === settings.outputWidth &&
+    item.outputHeight === settings.outputHeight
+  ));
+
+  if (duplicate) {
+    logMessage(t('log.duplicateJob'), 'error');
+    return;
+  }
+
   const item = {
     id: createId('mockup'),
     taskId: null,
@@ -604,9 +624,10 @@ function outputFileName(result) {
   const dotIndex = originalName.lastIndexOf('.');
   const baseName = dotIndex > 0 ? originalName.slice(0, dotIndex) : originalName;
   const safeName = baseName.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').replace(/\s+/g, '_');
+  const runSuffix = String(item.taskId || item.id || Date.now()).replace(/[^A-Za-z0-9_-]+/g, '').slice(-8);
   const width = item.outputWidth || parseInt(targetWidthInput.value, 10) || 3000;
   const height = item.outputHeight || parseInt(targetHeightInput.value, 10) || 3000;
-  return `GPT_Mockup_Luxury/mockup_${safeName}_${item.sceneStyle}_v${result.index + 1}_${width}x${height}.png`;
+  return `GPT_Mockup_Luxury/mockup_${safeName}_${item.sceneStyle}_${runSuffix}_v${result.index + 1}_${width}x${height}.png`;
 }
 
 function downloadBlob(blob, filename) {

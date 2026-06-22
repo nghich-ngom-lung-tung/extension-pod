@@ -8,6 +8,10 @@ function isTargetCustomGptPage() {
   return window.location.href.includes(TARGET_CUSTOM_GPT_ID);
 }
 
+function isWorkerPage() {
+  return window.location.hash.includes('sfrankie-worker');
+}
+
 // Sync saved language preference
 chrome.storage?.local?.get('sfrankie_lang', data => {
   if (data?.sfrankie_lang) I18N?.setLang(data.sfrankie_lang);
@@ -43,9 +47,48 @@ function waitForElement(selector, timeoutMs = 30000) {
 
 // Helper: Convert Base64 Data URL to a File Object
 async function dataURLtoFile(dataurl, filename, mimeType) {
-  const res = await fetch(dataurl);
-  const blob = await res.blob();
-  return new File([blob], filename, { type: mimeType || blob.type });
+  if (typeof dataurl !== 'string' || !dataurl) {
+    throw new Error(t('err.invalidSourceData'));
+  }
+
+  if (dataurl.startsWith('data:')) {
+    const commaIndex = dataurl.indexOf(',');
+    if (commaIndex < 0) {
+      throw new Error(t('err.invalidSourceData'));
+    }
+
+    const header = dataurl.slice(5, commaIndex);
+    const payload = dataurl.slice(commaIndex + 1);
+    const isBase64 = /;base64/i.test(header);
+    const detectedType = header.split(';')[0] || mimeType || 'application/octet-stream';
+    let bytes;
+
+    if (isBase64) {
+      const binary = atob(payload);
+      bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index);
+      }
+    } else {
+      const decoded = decodeURIComponent(payload);
+      bytes = new TextEncoder().encode(decoded);
+    }
+
+    return new File([bytes], filename, {
+      type: mimeType || detectedType,
+      lastModified: Date.now()
+    });
+  }
+
+  const response = await fetch(dataurl);
+  if (!response.ok) {
+    throw new Error(t('err.sourceFetch', { status: response.status }));
+  }
+  const blob = await response.blob();
+  return new File([blob], filename, {
+    type: mimeType || blob.type,
+    lastModified: Date.now()
+  });
 }
 
 function formatFileSize(bytes) {
@@ -215,6 +258,15 @@ async function fetchImageAsBase64(url) {
     void error;
     return url; // Fallback to raw URL if fetch fails due to CORS
   }
+}
+
+function loadImageFromDataUrl(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(t('err.loadResult')));
+    img.src = src;
+  });
 }
 
 // Send progress update to Extension
@@ -491,7 +543,9 @@ async function clearFailedUploadUi() {
       return /remove (file|attachment|image)|xóa (tệp|file|ảnh)|remove uploaded/.test(label);
     });
 
-  attachmentRemoveButtons.forEach(button => button.click());
+  if (errorElements.length > 0) {
+    attachmentRemoveButtons.forEach(button => button.click());
+  }
   if (errorElements.length > 0 || attachmentRemoveButtons.length > 0) {
     await sleep(750);
   }
@@ -542,7 +596,76 @@ function dispatchFileInput(file) {
   }
 }
 
-async function waitForUploadReady(timeoutMs = 30000) {
+function getComposerRoot(textarea) {
+  return (
+    textarea.closest('form') ||
+    textarea.closest('[data-testid*="composer"]') ||
+    textarea.closest('[class*="composer"]') ||
+    textarea.parentElement?.parentElement?.parentElement ||
+    textarea.parentElement ||
+    document.body
+  );
+}
+
+function getComposerAttachmentEvidence(textarea, fileName = '') {
+  const root = getComposerRoot(textarea);
+  const markers = new Set();
+  const normalizedFileName = fileName.toLowerCase();
+  const fileBase = normalizedFileName.replace(/\.[^.]+$/, '');
+
+  querySelectorAllDeep(root, 'button, [role="button"], [data-testid], img')
+    .forEach(element => {
+      if (element.closest(`#${POPUP_ID}`)) return;
+      const label = [
+        element.getAttribute('aria-label'),
+        element.getAttribute('title'),
+        element.getAttribute('data-testid'),
+        element.getAttribute('alt')
+      ].filter(Boolean).join(' ').toLowerCase();
+
+      if (
+        /remove (file|attachment|image)|uploaded (file|image)|attachment|file-preview|image-preview/.test(label)
+      ) {
+        markers.add(element);
+        return;
+      }
+
+      if (element.tagName === 'IMG') {
+        const rect = element.getBoundingClientRect();
+        if (isVisibleElement(element) && rect.width >= 28 && rect.height >= 28) {
+          markers.add(element);
+        }
+      }
+    });
+
+  const composerText = (root.textContent || '').toLowerCase();
+  const nameVisible = Boolean(
+    normalizedFileName &&
+    (composerText.includes(normalizedFileName) || (fileBase.length >= 6 && composerText.includes(fileBase)))
+  );
+
+  return {
+    count: markers.size,
+    nameVisible
+  };
+}
+
+function hasNewAttachmentEvidence(current, baseline) {
+  return current.nameVisible || current.count > baseline.count;
+}
+
+async function waitForAttachmentEvidence(textarea, fileName, baseline, timeoutMs = 6000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const current = getComposerAttachmentEvidence(textarea, fileName);
+    if (hasNewAttachmentEvidence(current, baseline)) return true;
+    if (getVisibleUploadErrorElements().length > 0) return false;
+    await sleep(300);
+  }
+  return false;
+}
+
+async function waitForUploadReady(textarea, fileName, baseline, timeoutMs = 30000) {
   const startedAt = Date.now();
   let readySince = null;
 
@@ -550,6 +673,8 @@ async function waitForUploadReady(timeoutMs = 30000) {
     const sendButton = document.querySelector('button[data-testid="send-button"]');
     const sendReady = Boolean(sendButton && !sendButton.disabled);
     const hasUploadError = getVisibleUploadErrorElements().length > 0;
+    const attachment = getComposerAttachmentEvidence(textarea, fileName);
+    const attachmentReady = hasNewAttachmentEvidence(attachment, baseline);
 
     if (hasUploadError && Date.now() - startedAt > 1200) {
       const error = new Error(t('err.uploadFailed'));
@@ -557,7 +682,7 @@ async function waitForUploadReady(timeoutMs = 30000) {
       throw error;
     }
 
-    if (sendReady && !hasUploadError) {
+    if (sendReady && attachmentReady && !hasUploadError) {
       if (!readySince) readySince = Date.now();
       if (Date.now() - readySince >= 1500) return sendButton;
     } else {
@@ -588,8 +713,15 @@ async function uploadFileWithRetry(textarea, uploadFiles, taskId, maxAttempts = 
       );
     }
 
+    const baseline = getComposerAttachmentEvidence(textarea, file.name);
     const usedDirectInput = dispatchFileInput(file);
-    if (!usedDirectInput) {
+    let attachmentDetected = false;
+
+    if (usedDirectInput) {
+      attachmentDetected = await waitForAttachmentEvidence(textarea, file.name, baseline, 5000);
+    }
+
+    if (!usedDirectInput || !attachmentDetected) {
       dispatchFilePaste(textarea, file);
     }
     reportProgress(
@@ -602,7 +734,7 @@ async function uploadFileWithRetry(textarea, uploadFiles, taskId, maxAttempts = 
     );
 
     try {
-      return await waitForUploadReady();
+      return await waitForUploadReady(textarea, file.name, baseline);
     } catch (error) {
       lastError = error;
       if (attempt >= maxAttempts) break;
@@ -623,6 +755,7 @@ function isChatGptGenerationInProgress() {
 }
 
 const CONTENT_POLICY_REFUSAL_PATTERN = /image we created may violate our content policies|may violate (?:our )?content polic(?:y|ies)|can't (?:help|assist) with (?:that|this) (?:image|request)|cannot (?:help|assist) with (?:that|this) (?:image|request)/i;
+const FILE_PATH_OUTPUT_PATTERN = /\/mnt\/data\/[^\s'"<>]+?\.(?:png|jpe?g|webp|avif)|(?:mockup|image|result)[_\w-]*\.(?:png|jpe?g|webp|avif)/i;
 
 function getVisibleContentPolicyRefusalContainers() {
   return getAssistantContainers().filter(container => {
@@ -634,6 +767,22 @@ function getVisibleContentPolicyRefusalContainers() {
 function hasNewContentPolicyRefusal(knownPolicyRefusals) {
   return getVisibleContentPolicyRefusalContainers()
     .some(container => !knownPolicyRefusals.has(container));
+}
+
+function hasNewFilePathOnlyOutput(knownAssistantCount) {
+  const assistantContainers = getAssistantContainers();
+  const newContainers = assistantContainers.length > knownAssistantCount
+    ? assistantContainers.slice(knownAssistantCount)
+    : assistantContainers.slice(-1);
+
+  return newContainers.some(container => {
+    if (!isVisibleElement(container)) return false;
+    const text = container.textContent || "";
+    if (!FILE_PATH_OUTPUT_PATTERN.test(text)) return false;
+    return getImageCandidates(container)
+      .filter(candidate => candidate.area >= 20000)
+      .length === 0;
+  });
 }
 
 function getFinalImageControls() {
@@ -830,6 +979,16 @@ async function waitForAllGeneratedImages(
       throw error;
     }
 
+    if (
+      elapsedSeconds >= 10 &&
+      collectedUrls.size === 0 &&
+      hasNewFilePathOnlyOutput(knownAssistantCount)
+    ) {
+      const error = new Error(t('err.filePathOutput'));
+      error.code = 'FILE_PATH_OUTPUT';
+      throw error;
+    }
+
     if (elapsedSeconds >= 30 && elapsedSeconds - lastProgressAt >= 30) {
       lastProgressAt = elapsedSeconds;
       const percent = Math.min(89, 85 + Math.floor(elapsedSeconds / 45));
@@ -899,7 +1058,7 @@ async function waitForAllGeneratedImages(
 let popupContainer = null;
 
 function createPopup() {
-  if (!isTargetCustomGptPage() || document.getElementById(POPUP_ID)) return;
+  if (!isTargetCustomGptPage() || isWorkerPage() || document.getElementById(POPUP_ID)) return;
   
   popupContainer = document.createElement('div');
   popupContainer.id = POPUP_ID;
@@ -1213,68 +1372,105 @@ async function executeMockupAutomation(task, runId) {
       await sleep(700);
     }
     
-    // 5. Inject prompt
+    // 5. Generate each requested mockup as its own assistant image response.
+    // Asking for several images in one prompt often produces a collage/contact sheet.
     const mockup = globalThis.SfrankieMockup;
-    reportProgress(
-      75,
-      mockup.progressText,
-      'info',
-      task.taskId
-    );
-    
-    let compiledPrompt = mockup.buildPrompt ? mockup.buildPrompt(task) : '';
-    
-    if (compiledPrompt.trim()) {
-      textarea.focus();
-      document.execCommand('insertText', false, compiledPrompt);
-    }
-    
-    // Wait for DOM to register text value
-    await sleep(500);
-    
-    // 6. Click the Send Button
-    reportProgress(80, t('prog.sending'), 'info', task.taskId);
-    sendBtn = document.querySelector('button[data-testid="send-button"]');
-    if (!sendBtn || sendBtn.disabled) {
-      throw new Error(t('err.noSendBtn'));
-    }
-
-    let knownImageUrls = collectImageUrls(document);
-    let knownAssistantCount = getAssistantContainers().length;
-    let knownFinalControls = new Set(getFinalImageControls());
-    let knownPolicyRefusals = new Set(getVisibleContentPolicyRefusalContainers());
-    sendBtn.click();
-
-    // 7. Wait for ChatGPT to finish generating ALL images
-    reportProgress(
-      85,
-      t('prog.waitingGen'),
-      'info',
-      task.taskId
-    );
+    const shotPrompts = mockup.buildShotPrompts
+      ? mockup.buildShotPrompts(task)
+      : [mockup.buildPrompt ? mockup.buildPrompt(task) : ''];
+    const requestedImageCount = Math.max(1, Math.min(10, Number(task.count) || 1));
+    const collectedShotUrls = [];
     const generationTimeoutMs = 7 * 60 * 1000;
     const stalledTimeoutMs = smallestSourceSize < 512 * 1024
       ? 3 * 60 * 1000
       : null;
-    const targetImageUrls = await waitForAllGeneratedImages(
-      knownImageUrls,
-      knownAssistantCount,
-      knownFinalControls,
-      knownPolicyRefusals,
-      task.taskId,
-      runId,
-      generationTimeoutMs,
-      stalledTimeoutMs,
-      Math.max(1, Math.min(10, Number(task.count) || 1))
-    );
+
+    for (let shotIndex = 0; shotIndex < shotPrompts.length; shotIndex += 1) {
+      const compiledPrompt = shotPrompts[shotIndex];
+      const shotNumber = shotIndex + 1;
+      const shotTotal = shotPrompts.length === 1 && requestedImageCount > 1
+        ? requestedImageCount
+        : shotPrompts.length;
+      const expectedImagesForPrompt = shotPrompts.length === 1
+        ? requestedImageCount
+        : 1;
+      const promptBox = shotIndex === 0
+        ? textarea
+        : await waitForElement('#prompt-textarea', 30000);
+
+      reportProgress(
+        Math.min(88, 74 + Math.floor((shotIndex / shotTotal) * 14)),
+        t('prog.preparingShot', { n: shotNumber, total: shotTotal }),
+        'info',
+        task.taskId
+      );
+
+      promptBox.focus();
+      document.execCommand('insertText', false, compiledPrompt);
+      await sleep(500);
+
+      reportProgress(
+        Math.min(90, 78 + Math.floor((shotIndex / shotTotal) * 12)),
+        t('prog.sendingShot', { n: shotNumber, total: shotTotal }),
+        'info',
+        task.taskId
+      );
+
+      sendBtn = document.querySelector('button[data-testid="send-button"]');
+      if (!sendBtn || sendBtn.disabled) {
+        throw new Error(t('err.noSendBtn'));
+      }
+
+      const knownImageUrls = collectImageUrls(document);
+      const knownAssistantCount = getAssistantContainers().length;
+      const knownFinalControls = new Set(getFinalImageControls());
+      const knownPolicyRefusals = new Set(getVisibleContentPolicyRefusalContainers());
+      sendBtn.click();
+
+      reportProgress(
+        Math.min(94, 82 + Math.floor((shotIndex / shotTotal) * 12)),
+        t('prog.waitingShot', { n: shotNumber, total: shotTotal }),
+        'info',
+        task.taskId
+      );
+
+      const shotImageUrls = await waitForAllGeneratedImages(
+        knownImageUrls,
+        knownAssistantCount,
+        knownFinalControls,
+        knownPolicyRefusals,
+        task.taskId,
+        runId,
+        generationTimeoutMs,
+        stalledTimeoutMs,
+        expectedImagesForPrompt
+      );
+
+      const newShotUrls = shotImageUrls.filter(url => !collectedShotUrls.includes(url));
+      if (newShotUrls.length === 0) {
+        throw new Error(t('err.noResult'));
+      }
+      collectedShotUrls.push(...newShotUrls);
+
+      reportProgress(
+        Math.min(95, 84 + Math.floor((shotNumber / shotTotal) * 11)),
+        t('prog.shotDone', { n: shotNumber, total: shotTotal }),
+        'success',
+        task.taskId
+      );
+
+      if (shotNumber < shotTotal) {
+        await sleep(1200);
+      }
+    }
 
     // 8. Extract ALL result images
-    reportProgress(90, t('prog.extracting', { n: targetImageUrls.length }), 'info', task.taskId);
-    reportProgress(95, t('prog.fetching', { n: targetImageUrls.length }), 'info', task.taskId);
+    reportProgress(95, t('prog.extracting', { n: collectedShotUrls.length }), 'info', task.taskId);
+    reportProgress(97, t('prog.fetching', { n: collectedShotUrls.length }), 'info', task.taskId);
 
     // Convert each image to Base64 in parallel to bypass CORS
     const base64Urls = await Promise.all(
-      targetImageUrls.map(url => fetchImageAsBase64(url))
+      collectedShotUrls.map(url => fetchImageAsBase64(url))
     );
 
     // Send all images back to panel

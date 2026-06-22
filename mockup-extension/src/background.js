@@ -92,15 +92,19 @@ async function sendMessageToTabWithRetry(tabId, message, maxRetries = 15) {
 // Helper to ensure target Custom GPT tab is open and focused
 async function ensureGptTab() {
   const tabs = await chrome.tabs.query({ url: "*://chatgpt.com/*" });
-  let targetTab = null;
-  
-  // Look specifically for the custom GPT URL segment
-  for (const tab of tabs) {
-    if (tab.url && tab.url.includes(CUSTOM_GPT_ID)) {
-      targetTab = tab;
-      break;
-    }
+  const staleWorkerTabs = tabs.filter(tab => (
+    tab.url?.includes(CUSTOM_GPT_ID) &&
+    tab.url.includes('#sfrankie-worker')
+  ));
+  for (const staleTab of staleWorkerTabs) {
+    try {
+      await chrome.tabs.remove(staleTab.id);
+    } catch (_) { /* already closed */ }
   }
+
+  const targetTab = tabs
+    .filter(tab => tab.url?.includes(CUSTOM_GPT_ID) && !tab.url.includes('#sfrankie-worker'))
+    .sort((a, b) => Number(b.active) - Number(a.active))[0] || null;
   
   let tabId = null;
   if (targetTab) {
@@ -149,8 +153,8 @@ async function refreshAndRetryTask(taskData) {
     const tabId = await ensureGptTab();
     await chrome.tabs.reload(tabId);
     await waitForTabComplete(tabId, 70000);
-    relayProgress(68, t('prog.refreshed'), 'info', taskData.taskId);
     await new Promise(resolve => setTimeout(resolve, 2500));
+    relayProgress(68, t('prog.refreshed'), 'info', taskData.taskId);
     await sendMessageToTabWithRetry(tabId, {
       ...taskData,
       type: 'EXECUTE_MOCKUP',
@@ -168,11 +172,7 @@ async function handleMockupTask(taskData) {
     relayProgress(15, t('prog.checkingTabs'), 'info', taskData.taskId);
     const tabId = await ensureGptTab();
     relayProgress(25, t('prog.locatedTab'), 'info', taskData.taskId);
-    
-    // Wait for the page loading status to be 'complete'
-    relayProgress(35, t('prog.waitPageLoad'), 'info', taskData.taskId);
     await waitForTabComplete(tabId, 30000);
-    
     relayProgress(45, t('prog.pageLoaded'), 'info', taskData.taskId);
     
     // Send task parameters to content.js inside that tab

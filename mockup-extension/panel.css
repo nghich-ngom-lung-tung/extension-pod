@@ -1032,6 +1032,10 @@ input::placeholder {
   box-shadow: 0 0 10px var(--gold-glow);
 }
 
+.process-percent {
+  margin-left: auto;
+}
+
 .progress-fill::after {
   content: "";
   position: absolute;
