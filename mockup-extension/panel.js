@@ -19,6 +19,9 @@ const COLOR_SWATCHES = [
   ['yellow', '#ffe34a']
 ];
 
+// content.js generation timeout is ~7 min; add a 2 min buffer for the rest of the flow.
+const WATCHDOG_MS = 9 * 60 * 1000;
+
 let queueItems = [];
 let activeTaskId = null;
 let activeQueueItemId = null;
@@ -29,6 +32,7 @@ let selectedCount = 1;
 let selectedDesign = null;
 let selectedTemplate = null;
 let persistTimer = null;
+let taskWatchdog = null;
 
 const designInput = document.getElementById('design-input');
 const templateInput = document.getElementById('template-input');
@@ -49,6 +53,7 @@ const targetWidthInput = document.getElementById('target-width');
 const targetHeightInput = document.getElementById('target-height');
 const addQueueBtn = document.getElementById('add-queue-btn');
 const startBtn = document.getElementById('start-btn');
+const stopBtn = document.getElementById('stop-btn');
 const clearQueueBtn = document.getElementById('clear-queue-btn');
 const queueCard = document.getElementById('queue-card');
 const queueList = document.getElementById('queue-list');
@@ -127,6 +132,8 @@ function refreshConnText() {
 function updateProgress(percent, statusText, isError = false) {
   const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
   progressBar.style.width = `${safePercent}%`;
+  const progressTrack = progressBar.parentElement;
+  if (progressTrack) progressTrack.setAttribute('aria-valuenow', String(safePercent));
   processPercentText.textContent = `${safePercent}%`;
   if (statusText != null) processStatusText.textContent = statusText;
   connState = isError ? 'error' : (safePercent > 0 && safePercent < 100 ? 'active' : 'idle');
@@ -170,6 +177,10 @@ function getCount() {
   return Math.max(1, Math.min(10, selectedCount === 'custom' ? Number(customCount.value) || 1 : Number(selectedCount) || 1));
 }
 
+function clampDimension(value) {
+  return Math.min(10000, Math.max(100, value));
+}
+
 function getSettings() {
   return {
     mode: modeSelect.value,
@@ -179,8 +190,8 @@ function getSettings() {
     customColor: customColor.value.trim(),
     sceneStyle: sceneSelect.value,
     customContext: customContext.value.trim(),
-    outputWidth: parseInt(targetWidthInput.value, 10) || 3000,
-    outputHeight: parseInt(targetHeightInput.value, 10) || 3000
+    outputWidth: clampDimension(parseInt(targetWidthInput.value, 10) || 3000),
+    outputHeight: clampDimension(parseInt(targetHeightInput.value, 10) || 3000)
   };
 }
 
@@ -301,6 +312,7 @@ function updateActionState() {
   const completedCount = getCompletedResults().length;
   addQueueBtn.disabled = !selectedDesign || isQueueRunning;
   startBtn.disabled = isQueueRunning || getRunnableCount() === 0;
+  if (stopBtn) stopBtn.classList.toggle('hidden', !isQueueRunning);
   clearQueueBtn.disabled = isQueueRunning || queueItems.length === 0;
   downloadBtn.disabled = completedCount === 0;
   downloadAllBtn.disabled = completedCount === 0 || isDownloadingAll;
@@ -349,6 +361,7 @@ function renderQueue() {
       download.dataset.itemId = item.id;
       download.textContent = 'DL';
       download.title = t('title.download');
+      download.setAttribute('aria-label', t('title.download'));
       actions.appendChild(download);
 
       const rework = document.createElement('button');
@@ -358,6 +371,7 @@ function renderQueue() {
       rework.dataset.itemId = item.id;
       rework.textContent = 'RW';
       rework.title = t('title.rework');
+      rework.setAttribute('aria-label', t('title.rework'));
       rework.disabled = isQueueRunning;
       actions.appendChild(rework);
     }
@@ -370,6 +384,7 @@ function renderQueue() {
       remove.dataset.itemId = item.id;
       remove.textContent = 'X';
       remove.title = t('title.remove');
+      remove.setAttribute('aria-label', t('title.remove'));
       actions.appendChild(remove);
     }
 
@@ -519,10 +534,18 @@ function processNextQueueItem() {
     }
     failActiveItem(t('err.workerComm', { msg: chrome.runtime.lastError.message }));
   });
+
+  if (taskWatchdog) clearTimeout(taskWatchdog);
+  taskWatchdog = setTimeout(() => {
+    failActiveItem(t('err.taskTimeout') || 'Task timed out');
+  }, WATCHDOG_MS);
 }
 
-function failActiveItem(errorMessage) {
-  const item = queueItems.find(candidate => candidate.id === activeQueueItemId);
+function failActiveItem(errorMessage, taskId = null) {
+  clearTimeout(taskWatchdog);
+  taskWatchdog = null;
+  const item = (taskId && queueItems.find(candidate => candidate.taskId === taskId))
+    || queueItems.find(candidate => candidate.id === activeQueueItemId);
   if (!item) return;
   item.status = 'error';
   item.error = errorMessage || t('err.unknown');
@@ -533,11 +556,14 @@ function failActiveItem(errorMessage) {
   setTimeout(processNextQueueItem, 700);
 }
 
-function completeActiveItem(imageUrls) {
-  const item = queueItems.find(candidate => candidate.id === activeQueueItemId);
+function completeActiveItem(imageUrls, taskId = null) {
+  clearTimeout(taskWatchdog);
+  taskWatchdog = null;
+  const item = (taskId && queueItems.find(candidate => candidate.taskId === taskId))
+    || queueItems.find(candidate => candidate.id === activeQueueItemId);
   if (!item) return;
   if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
-    failActiveItem(t('err.noResult'));
+    failActiveItem(t('err.noResult'), taskId);
     return;
   }
 
@@ -754,9 +780,37 @@ swatchRow.addEventListener('click', event => {
   syncColorControls();
 });
 
+function stopQueue() {
+  if (!isQueueRunning) return;
+  isQueueRunning = false;
+  clearTimeout(taskWatchdog);
+  taskWatchdog = null;
+
+  const activeItem = (activeTaskId && queueItems.find(item => item.taskId === activeTaskId))
+    || queueItems.find(item => item.id === activeQueueItemId);
+  if (activeItem) {
+    activeItem.status = 'pending';
+    activeItem.error = null;
+    activeItem.taskId = null;
+  }
+
+  activeTaskId = null;
+  activeQueueItemId = null;
+
+  try {
+    chrome.runtime.sendMessage({ type: 'ABORT_AUTOMATION' }, () => void chrome.runtime.lastError);
+  } catch (_) { /* worker unavailable */ }
+
+  logMessage(t('log.stopped') || 'Stopped by user.', 'error');
+  updateProgress(0, t('progress.ready'));
+  renderQueue();
+  updateActionState();
+}
+
 colorSelect.addEventListener('change', syncColorControls);
 addQueueBtn.addEventListener('click', addCurrentJobToQueue);
 startBtn.addEventListener('click', startQueue);
+stopBtn?.addEventListener('click', stopQueue);
 clearQueueBtn.addEventListener('click', clearQueue);
 
 const settingsToggle = document.getElementById('settings-toggle');
@@ -815,7 +869,8 @@ downloadAllBtn.addEventListener('click', downloadAllCompleted);
 
 chrome.runtime.onMessage.addListener(message => {
   if (!activeTaskId || message.taskId !== activeTaskId) return;
-  const activeItem = queueItems.find(item => item.id === activeQueueItemId);
+  const activeItem = queueItems.find(item => item.taskId === message.taskId)
+    || queueItems.find(item => item.id === activeQueueItemId);
   if (!activeItem) return;
   const position = currentQueuePosition(activeItem.id);
 
@@ -823,28 +878,32 @@ chrome.runtime.onMessage.addListener(message => {
     const { percent, text, status } = message;
     logMessage(`[${position.label}] ${text}`, status === 'error' ? 'error' : (status === 'success' ? 'success' : 'info'));
     updateProgress(percent, `[${position.label}] ${text}`, status === 'error');
-    if (status === 'error') failActiveItem(text);
+    if (status === 'error') failActiveItem(text, message.taskId);
     return;
   }
 
   if (message.type === 'MOCKUP_DONE') {
     const imageUrls = message.imageUrls || (message.imageUrl ? [message.imageUrl] : []);
     updateProgress(100, t('progress.completed', { pos: position.label, n: imageUrls.length }));
-    completeActiveItem(imageUrls);
+    completeActiveItem(imageUrls, message.taskId);
   }
 });
 
 const langToggle = document.getElementById('lang-toggle');
 if (langToggle) {
   langToggle.querySelectorAll('.lang-opt').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.lang === currentLang);
+    const isActive = btn.dataset.lang === currentLang;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-pressed', String(isActive));
   });
   langToggle.addEventListener('click', event => {
     const btn = event.target.closest('.lang-opt[data-lang]');
     if (!btn) return;
     setLang(btn.dataset.lang);
     langToggle.querySelectorAll('.lang-opt').forEach(option => {
-      option.classList.toggle('active', option.dataset.lang === currentLang);
+      const isActive = option.dataset.lang === currentLang;
+      option.classList.toggle('active', isActive);
+      option.setAttribute('aria-pressed', String(isActive));
     });
   });
 }

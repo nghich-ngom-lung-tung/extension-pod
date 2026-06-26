@@ -14,6 +14,7 @@ chrome.storage?.local?.get('sfrankie_lang', data => {
 chrome.storage?.onChanged?.addListener((changes, area) => {
   if (area === 'local' && changes.sfrankie_lang) {
     I18N?.setLang(changes.sfrankie_lang.newValue);
+    refreshPopupTooltips();
   }
 });
 
@@ -203,8 +204,8 @@ async function fetchImageAsBase64(url) {
       reader.readAsDataURL(blob);
     });
   } catch (error) {
-    console.warn("[Extension] Warning: Failed to convert image to Base64. Falling back to raw URL.", error);
-    return url; // Fallback to raw URL if fetch fails due to CORS
+    console.warn("[Extension] Warning: Failed to convert image to Base64. Dropping this URL.", error);
+    return null; // Never leak a raw cross-origin URL the panel cannot read.
   }
 }
 
@@ -229,6 +230,34 @@ const ASSISTANT_CONTAINER_SELECTOR = [
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Insert prompt text into a contenteditable and confirm it actually landed.
+// ChatGPT's editor occasionally swallows execCommand('insertText'); when it does
+// we fall back to setting textContent + dispatching an input event so the Send
+// button enables. Defensive and logged; never hangs even if both paths fail.
+function insertPromptText(editable, text) {
+  if (!editable) return false;
+
+  editable.focus();
+  document.execCommand('insertText', false, text);
+
+  // A recognizable substring proves the text reached the editor. Long prompts
+  // can wrap/normalize whitespace, so check a trimmed leading slice.
+  const probe = (text.trim().slice(0, 24) || text.trim());
+  const reads = () => (editable.textContent || editable.innerText || '');
+
+  if (probe && reads().includes(probe)) return true;
+
+  // Fallback: write directly and notify React-style listeners.
+  console.warn("[Extension] insertText did not register; applying textContent fallback.");
+  editable.textContent = text;
+  editable.dispatchEvent(new InputEvent('input', { bubbles: true }));
+
+  if (probe && reads().includes(probe)) return true;
+
+  console.warn("[Extension] Prompt verification still failed after fallback; proceeding anyway.");
+  return false;
 }
 
 function normalizeUrl(url) {
@@ -844,6 +873,15 @@ async function waitForAllGeneratedImages(
 }
 
 let popupContainer = null;
+let popupTooltipRefs = null;
+
+// Re-localize the popup header tooltips when the language changes.
+function refreshPopupTooltips() {
+  if (!popupTooltipRefs) return;
+  popupTooltipRefs.minBtn.title = t('popup.minimize');
+  popupTooltipRefs.maxBtn.title = t('popup.maximize');
+  popupTooltipRefs.closeBtn.title = t('popup.close');
+}
 
 function createPopup() {
   if (!isTargetCustomGptPage() || document.getElementById('sfrankie-redesign-popup')) return;
@@ -889,13 +927,29 @@ function createPopup() {
 
   // Left Title
   const title = document.createElement('div');
-  title.innerHTML = `
-    <span style="color:#ffb627; margin-right:7px; text-shadow:0 0 10px rgba(255,182,39,0.5);">◆</span>
-    <span style="display:inline-flex; flex-direction:column; gap:1px; vertical-align:middle;">
-      <span>AUTO <b style="color:#ffb627;">REDESIGN</b> PRO</span>
-      <span style="font-size:7px; color:#9a9180; letter-spacing:0.08em;">made by Sfrankie</span>
-    </span>
-  `;
+  const titleDiamond = document.createElement('span');
+  titleDiamond.style.cssText = 'color:#ffb627; margin-right:7px; text-shadow:0 0 10px rgba(255,182,39,0.5);';
+  titleDiamond.textContent = '◆';
+
+  const titleStack = document.createElement('span');
+  titleStack.style.cssText = 'display:inline-flex; flex-direction:column; gap:1px; vertical-align:middle;';
+
+  const titleMain = document.createElement('span');
+  titleMain.appendChild(document.createTextNode('AUTO '));
+  const titleMainBold = document.createElement('b');
+  titleMainBold.style.cssText = 'color:#ffb627;';
+  titleMainBold.textContent = 'REDESIGN';
+  titleMain.appendChild(titleMainBold);
+  titleMain.appendChild(document.createTextNode(' PRO'));
+
+  const titleSub = document.createElement('span');
+  titleSub.style.cssText = 'font-size:7px; color:#9a9180; letter-spacing:0.08em;';
+  titleSub.textContent = 'made by Sfrankie';
+
+  titleStack.appendChild(titleMain);
+  titleStack.appendChild(titleSub);
+  title.appendChild(titleDiamond);
+  title.appendChild(titleStack);
   title.style.cssText = `
     font-size: 11px;
     color: #f6f2e9;
@@ -913,10 +967,28 @@ function createPopup() {
     align-items: center;
   `;
 
-  // Helper function to style individual control buttons
+  // Build a glyph node (optionally nudged vertically) without using innerHTML.
+  function makeGlyph(glyph, translateY) {
+    const span = document.createElement('span');
+    span.style.cssText = `transform: translateY(${translateY || '0px'}); display: inline-block;`;
+    span.textContent = glyph;
+    return span;
+  }
+
+  function setBtnGlyph(btn, glyph, translateY) {
+    btn.textContent = '';
+    btn.appendChild(makeGlyph(glyph, translateY));
+  }
+
+  // Helper function to style individual control buttons.
+  // `content` may be a glyph node (or string) built by the caller.
   function createControlBtn(content, hoverBg, hoverColor) {
     const btn = document.createElement('span');
-    btn.innerHTML = content;
+    if (content instanceof Node) {
+      btn.appendChild(content);
+    } else {
+      btn.textContent = content;
+    }
     btn.style.cssText = `
       width: 24px;
       height: 24px;
@@ -954,47 +1026,49 @@ function createPopup() {
 
   // 1. Minimize Button
   let isMinimized = false;
-  const minBtn = createControlBtn('<span style="transform: translateY(-2px); display: inline-block;">_</span>', 'rgba(255, 182, 39, 0.15)', '#ffb627');
-  minBtn.title = "Thu nhỏ / Mở rộng";
+  const minBtn = createControlBtn(makeGlyph('_', '-2px'), 'rgba(255, 182, 39, 0.15)', '#ffb627');
+  minBtn.title = t('popup.minimize');
   minBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     isMinimized = !isMinimized;
     if (isMinimized) {
       popupContainer.style.height = '40px';
       iframe.style.display = 'none';
-      minBtn.innerHTML = '<span style="transform: translateY(0px); display: inline-block;">□</span>';
+      setBtnGlyph(minBtn, '□', '0px');
     } else {
       popupContainer.style.height = '640px';
       iframe.style.display = 'block';
-      minBtn.innerHTML = '<span style="transform: translateY(-2px); display: inline-block;">_</span>';
+      setBtnGlyph(minBtn, '_', '-2px');
     }
   });
 
   // 2. Maximize Button (toggles height/width for better editor view)
   let isMaximized = false;
   const maxBtn = createControlBtn('▢', 'rgba(255, 182, 39, 0.15)', '#ffb627');
-  maxBtn.title = "Phóng to / Thu nhỏ";
+  maxBtn.title = t('popup.maximize');
   maxBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     isMaximized = !isMaximized;
     if (isMaximized) {
       popupContainer.style.width = '550px';
       popupContainer.style.height = '800px';
-      maxBtn.innerHTML = '⧉'; // restore icon
+      maxBtn.textContent = '⧉'; // restore icon
     } else {
       popupContainer.style.width = '380px';
       popupContainer.style.height = isMinimized ? '40px' : '640px';
-      maxBtn.innerHTML = '▢';
+      maxBtn.textContent = '▢';
     }
   });
 
   // 3. Close Button
   const closeBtn = createControlBtn('✕', 'rgba(255, 95, 86, 0.85)', '#fff');
-  closeBtn.title = "Đóng";
+  closeBtn.title = t('popup.close');
   closeBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     togglePopup();
   });
+
+  popupTooltipRefs = { minBtn, maxBtn, closeBtn };
 
   btnGroup.appendChild(minBtn);
   btnGroup.appendChild(maxBtn);
@@ -1092,6 +1166,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     activeAutomationRunId += 1;
     executeRedesignAutomation(message, activeAutomationRunId);
     sendResponse({ status: 'received' });
+  } else if (message.type === 'ABORT_AUTOMATION') {
+    // Bumping the run id supersedes any in-flight generation wait loop.
+    activeAutomationRunId += 1;
+    sendResponse({ status: 'aborted' });
   } else if (message.type === 'TOGGLE_POPUP') {
     togglePopup();
     sendResponse({ status: 'toggled' });
@@ -1139,12 +1217,12 @@ async function executeRedesignAutomation(task, runId) {
       compiledPrompt += `\nUser requirements: ${task.customPrompt}`;
     }
     
-    textarea.focus();
-    document.execCommand('insertText', false, compiledPrompt);
-    
+    // Insert the prompt and verify it actually landed before sending.
+    insertPromptText(textarea, compiledPrompt);
+
     // Wait for DOM to register text value
     await sleep(500);
-    
+
     // 6. Click the Send Button
     reportProgress(80, t('prog.sending'), 'info', task.taskId);
     sendBtn = document.querySelector('button[data-testid="send-button"]');
@@ -1190,11 +1268,10 @@ async function executeRedesignAutomation(task, runId) {
       );
 
       const fallbackTextarea = await waitForElement('#prompt-textarea', 20000);
-      fallbackTextarea.focus();
       const fallbackPrompt = isExtractRestore
         ? extractRestore.policyFallbackPrompt
         : `ORIGINAL CONCEPT MODE: Build a completely new standalone graphic from the source's general theme and energy. Create a different composition with fictional wording, original characters, and newly designed symbols. Exclude all product and mockup context. Deliver only the polished final image.`;
-      document.execCommand('insertText', false, fallbackPrompt);
+      insertPromptText(fallbackTextarea, fallbackPrompt);
       await sleep(500);
 
       const fallbackSendBtn = document.querySelector('button[data-testid="send-button"]');
@@ -1223,10 +1300,21 @@ async function executeRedesignAutomation(task, runId) {
     reportProgress(90, t('prog.extracting', { n: targetImageUrls.length }), 'info', task.taskId);
     reportProgress(95, t('prog.fetching', { n: targetImageUrls.length }), 'info', task.taskId);
 
-    // Convert each image to Base64 in parallel to bypass CORS
-    const base64Urls = await Promise.all(
+    // Convert each image to Base64 in parallel to bypass CORS. Keep only
+    // fulfilled data: URLs; a failed conversion would otherwise leave a raw
+    // cross-origin URL the panel cannot render.
+    const settled = await Promise.allSettled(
       targetImageUrls.map(url => fetchImageAsBase64(url))
     );
+    const base64Urls = settled
+      .filter(result => result.status === 'fulfilled')
+      .map(result => result.value)
+      .filter(value => typeof value === 'string' && value.startsWith('data:'));
+
+    if (base64Urls.length === 0) {
+      reportProgress(0, t('err.imageConvertFailed'), 'error', task.taskId);
+      return;
+    }
 
     // Send all images back to panel
     chrome.runtime.sendMessage({

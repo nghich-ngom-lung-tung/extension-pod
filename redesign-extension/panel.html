@@ -3,9 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <title>Auto Redesign Pro - made by Sfrankie</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="panel.css">
 </head>
 <body class="iframe-body">
@@ -139,6 +136,9 @@
       <span data-i18n="btn.execute">EXECUTE QUEUE</span>
     </button>
 
+    <!-- Stop Button -->
+    <button id="stop-btn" type="button" class="execute-btn stop-btn hidden" data-i18n="btn.stop">STOP</button>
+
     <!-- Execution Logs & Progress Console -->
     <div id="process-card" class="result-panel glass hidden">
       <div class="cmd-line">
@@ -146,10 +146,10 @@
         <span class="cmd-label" id="process-status-text">RUNNING AUTOMATION...</span>
         <span class="cursor-blink" id="process-percent-text" style="margin-left: auto;">0%</span>
       </div>
-      <div class="progress-track">
+      <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
         <div id="progress-bar" class="progress-fill" style="width: 0%;"></div>
       </div>
-      <div class="log-console" id="log-console">
+      <div class="log-console" id="log-console" aria-live="polite">
         <!-- Logs will print here -->
       </div>
     </div>

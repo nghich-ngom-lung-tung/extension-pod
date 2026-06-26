@@ -4,9 +4,6 @@
   "version": "1.0",
   "description": "Mockup Luxury Pro - made by Sfrankie. Generate premium product mockups through a dedicated ChatGPT Custom GPT workflow.",
   "permissions": [
-    "activeTab",
-    "tabs",
-    "scripting",
     "storage",
     "unlimitedStorage",
     "downloads"
@@ -26,7 +23,7 @@
     "default_title": "Mockup Luxury Pro - made by Sfrankie"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com"
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'"
   },
   "icons": {
     "16": "assets/icon16.png",
@@ -52,12 +49,7 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "panel.html",
-        "panel.css",
-        "panel.js",
-        "src/i18n.js",
-        "src/mockup.js",
-        "assets/*"
+        "panel.html"
       ],
       "matches": [
         "https://chatgpt.com/*"

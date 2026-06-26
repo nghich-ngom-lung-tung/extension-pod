@@ -139,9 +139,31 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     sendResponse({ status: 'refreshing' });
   } else if (request.type === 'BG_REMOVER_DONE' && request.taskId) {
     storeResult(request.taskId, request.imageUrls || []);
+  } else if (request.type === 'ABORT_AUTOMATION') {
+    relayAbortToTab();
+    sendResponse({ status: 'aborting' });
   }
   return true; // Keep message channel open for async operations
 });
+
+// Best-effort relay of a Stop request from the panel to the content script so it
+// can supersede any in-flight automation loop. Failures are non-fatal.
+async function relayAbortToTab() {
+  try {
+    const tabs = await chrome.tabs.query({ url: "*://chatgpt.com/*" });
+    for (const tab of tabs) {
+      if (tab.url && tab.url.includes(CUSTOM_GPT_ID)) {
+        try {
+          await chrome.tabs.sendMessage(tab.id, { type: 'ABORT_AUTOMATION' });
+        } catch (err) {
+          void err;
+        }
+      }
+    }
+  } catch (err) {
+    void err;
+  }
+}
 
 async function refreshAndRetryTask(taskData) {
   try {

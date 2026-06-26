@@ -19,8 +19,24 @@ chrome.storage?.local?.get('sfrankie_lang', data => {
 chrome.storage?.onChanged?.addListener((changes, area) => {
   if (area === 'local' && changes.sfrankie_lang) {
     I18N?.setLang(changes.sfrankie_lang.newValue);
+    refreshPopupControlTitles();
   }
 });
+
+// Keep the popup control button tooltips in sync with the active language.
+function refreshPopupControlTitles() {
+  const popup = document.getElementById(POPUP_ID);
+  if (!popup) return;
+  const titleKeys = {
+    minimize: 'popup.minimize',
+    maximize: 'popup.maximize',
+    close: 'popup.close'
+  };
+  Object.keys(titleKeys).forEach(ctrl => {
+    const btn = popup.querySelector(`[data-popup-ctrl="${ctrl}"]`);
+    if (btn) btn.title = t(titleKeys[ctrl]);
+  });
+}
 
 // Helper: Wait for element to appear in DOM
 function waitForElement(selector, timeoutMs = 30000) {
@@ -256,7 +272,7 @@ async function fetchImageAsBase64(url) {
     });
   } catch (error) {
     void error;
-    return url; // Fallback to raw URL if fetch fails due to CORS
+    return null; // Do not leak a raw cross-origin URL the panel cannot render/export
   }
 }
 
@@ -1101,13 +1117,26 @@ function createPopup() {
 
   // Left Title
   const title = document.createElement('div');
-  title.innerHTML = `
-    <span style="color:#ffb627; margin-right:7px; text-shadow:0 0 10px rgba(255,182,39,0.5);">◆</span>
-      <span style="display:inline-flex; flex-direction:column; gap:1px; vertical-align:middle;">
-      <span>MOCKUP <b style="color:#ffb627;">LUXURY</b> PRO</span>
-      <span style="font-size:7px; color:#9a9180; letter-spacing:0.08em;">made by Sfrankie</span>
-    </span>
-  `;
+  const titleDiamond = document.createElement('span');
+  titleDiamond.textContent = '◆';
+  titleDiamond.style.cssText = 'color:#ffb627; margin-right:7px; text-shadow:0 0 10px rgba(255,182,39,0.5);';
+
+  const titleStack = document.createElement('span');
+  titleStack.style.cssText = 'display:inline-flex; flex-direction:column; gap:1px; vertical-align:middle;';
+
+  const titleName = document.createElement('span');
+  titleName.append(
+    document.createTextNode('MOCKUP '),
+    (() => { const b = document.createElement('b'); b.style.color = '#ffb627'; b.textContent = 'LUXURY'; return b; })(),
+    document.createTextNode(' PRO')
+  );
+
+  const titleSub = document.createElement('span');
+  titleSub.style.cssText = 'font-size:7px; color:#9a9180; letter-spacing:0.08em;';
+  titleSub.textContent = 'made by Sfrankie';
+
+  titleStack.append(titleName, titleSub);
+  title.append(titleDiamond, titleStack);
   title.style.cssText = `
     font-size: 11px;
     color: #f6f2e9;
@@ -1125,10 +1154,23 @@ function createPopup() {
     align-items: center;
   `;
 
-  // Helper function to style individual control buttons
+  // Build a glyph node, optionally offset vertically (matches former inline markup).
+  function glyphNode(glyph, translateY) {
+    const span = document.createElement('span');
+    span.textContent = glyph;
+    span.style.cssText = `transform: translateY(${translateY || 0}px); display: inline-block;`;
+    return span;
+  }
+
+  // Helper function to style individual control buttons.
+  // `content` may be a DOM node or a plain string glyph.
   function createControlBtn(content, hoverBg, hoverColor) {
     const btn = document.createElement('span');
-    btn.innerHTML = content;
+    if (content instanceof Node) {
+      btn.appendChild(content);
+    } else {
+      btn.textContent = content;
+    }
     btn.style.cssText = `
       width: 24px;
       height: 24px;
@@ -1166,43 +1208,46 @@ function createPopup() {
 
   // 1. Minimize Button
   let isMinimized = false;
-  const minBtn = createControlBtn('<span style="transform: translateY(-2px); display: inline-block;">_</span>', 'rgba(255, 182, 39, 0.15)', '#ffb627');
-  minBtn.title = "Thu nhỏ / Mở rộng";
+  const minBtn = createControlBtn(glyphNode('_', -2), 'rgba(255, 182, 39, 0.15)', '#ffb627');
+  minBtn.dataset.popupCtrl = 'minimize';
+  minBtn.title = t('popup.minimize');
   minBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     isMinimized = !isMinimized;
     if (isMinimized) {
       popupContainer.style.height = '40px';
       iframe.style.display = 'none';
-      minBtn.innerHTML = '<span style="transform: translateY(0px); display: inline-block;">□</span>';
+      minBtn.replaceChildren(glyphNode('□', 0));
     } else {
       popupContainer.style.height = '640px';
       iframe.style.display = 'block';
-      minBtn.innerHTML = '<span style="transform: translateY(-2px); display: inline-block;">_</span>';
+      minBtn.replaceChildren(glyphNode('_', -2));
     }
   });
 
   // 2. Maximize Button (toggles height/width for better editor view)
   let isMaximized = false;
   const maxBtn = createControlBtn('▢', 'rgba(255, 182, 39, 0.15)', '#ffb627');
-  maxBtn.title = "Phóng to / Thu nhỏ";
+  maxBtn.dataset.popupCtrl = 'maximize';
+  maxBtn.title = t('popup.maximize');
   maxBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     isMaximized = !isMaximized;
     if (isMaximized) {
       popupContainer.style.width = '550px';
       popupContainer.style.height = '800px';
-      maxBtn.innerHTML = '⧉'; // restore icon
+      maxBtn.textContent = '⧉'; // restore icon
     } else {
       popupContainer.style.width = '380px';
       popupContainer.style.height = isMinimized ? '40px' : '640px';
-      maxBtn.innerHTML = '▢';
+      maxBtn.textContent = '▢';
     }
   });
 
   // 3. Close Button
   const closeBtn = createControlBtn('✕', 'rgba(255, 95, 86, 0.85)', '#fff');
-  closeBtn.title = "Đóng";
+  closeBtn.dataset.popupCtrl = 'close';
+  closeBtn.title = t('popup.close');
   closeBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     togglePopup();
@@ -1298,6 +1343,9 @@ let activeAutomationRunId = 0;
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'EXECUTE_MOCKUP') {
     if (!isTargetCustomGptPage()) {
+      // Report an error back to the panel so it fails the active item instead of
+      // hanging while waiting for progress that will never arrive.
+      reportProgress(0, t('err.wrongPage'), 'error', message.taskId);
       sendResponse({ status: 'wrong-page' });
       return true;
     }
@@ -1307,6 +1355,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.type === 'TOGGLE_POPUP') {
     togglePopup();
     sendResponse({ status: 'toggled' });
+  } else if (message.type === 'ABORT_AUTOMATION') {
+    // Bump the run token so any in-flight generation loop supersedes itself and bails.
+    activeAutomationRunId += 1;
+    sendResponse({ status: 'aborted' });
   }
   return true;
 });
@@ -1409,6 +1461,27 @@ async function executeMockupAutomation(task, runId) {
       document.execCommand('insertText', false, compiledPrompt);
       await sleep(500);
 
+      // Verify the prompt actually landed in the composer before sending. Some
+      // editor states swallow execCommand; fall back to direct text + input event.
+      const promptProbe = (compiledPrompt || '').trim().slice(0, 24);
+      const composerHasPrompt = () => {
+        const composerText = (promptBox.innerText || promptBox.textContent || '').trim();
+        return promptProbe.length === 0 || composerText.includes(promptProbe);
+      };
+      if (!composerHasPrompt()) {
+        console.warn('Prompt not detected in composer after execCommand; applying fallback.');
+        try {
+          promptBox.textContent = compiledPrompt;
+          promptBox.dispatchEvent(new InputEvent('input', { bubbles: true }));
+        } catch (fallbackError) {
+          void fallbackError;
+        }
+        await sleep(300);
+        if (!composerHasPrompt()) {
+          console.warn('Prompt still not detected after fallback; proceeding to send anyway.');
+        }
+      }
+
       reportProgress(
         Math.min(90, 78 + Math.floor((shotIndex / shotTotal) * 12)),
         t('prog.sendingShot', { n: shotNumber, total: shotTotal }),
@@ -1469,9 +1542,17 @@ async function executeMockupAutomation(task, runId) {
     reportProgress(97, t('prog.fetching', { n: collectedShotUrls.length }), 'info', task.taskId);
 
     // Convert each image to Base64 in parallel to bypass CORS
-    const base64Urls = await Promise.all(
+    const settledBase64 = await Promise.allSettled(
       collectedShotUrls.map(url => fetchImageAsBase64(url))
     );
+    const base64Urls = settledBase64
+      .filter(result => result.status === 'fulfilled' && typeof result.value === 'string' && result.value.startsWith('data:'))
+      .map(result => result.value);
+
+    if (base64Urls.length === 0) {
+      reportProgress(0, t('err.imageConvertFailed'), 'error', task.taskId);
+      return;
+    }
 
     // Send all images back to panel
     chrome.runtime.sendMessage({

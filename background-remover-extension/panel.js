@@ -40,6 +40,11 @@ let isQueueRunning = false;
 let isDownloadingAll = false;
 let batchSettings = null;
 let selectedResultItemId = null;
+let taskWatchdog = null;
+
+// Content script caps generation at 7 minutes; allow extra slack for upload,
+// tab refresh-and-retry, and message relay before declaring the task hung.
+const WATCHDOG_MS = 7 * 60 * 1000 + 120000;
 
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('file-input');
@@ -50,6 +55,7 @@ const clearQueueBtn = document.getElementById('clear-queue-btn');
 const targetWidthInput = document.getElementById('target-width');
 const targetHeightInput = document.getElementById('target-height');
 const startBtn = document.getElementById('start-btn');
+const stopBtn = document.getElementById('stop-btn');
 const processCard = document.getElementById('process-card');
 const processStatusText = document.getElementById('process-status-text');
 const processPercentText = document.getElementById('process-percent-text');
@@ -101,6 +107,7 @@ function refreshConnText() {
 function updateProgress(percent, statusText, isError = false) {
   const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
   progressBar.style.width = `${safePercent}%`;
+  progressBar.setAttribute('aria-valuenow', String(safePercent));
   processPercentText.textContent = `${safePercent}%`;
   if (statusText != null) processStatusText.textContent = statusText;
 
@@ -118,6 +125,17 @@ function getLatestCompletedItem() {
 
 function getRunnableCount() {
   return queueItems.filter(item => item.status === 'pending' || item.status === 'error').length;
+}
+
+// Resolve the queue item the active task belongs to. Prefer binding by taskId
+// (carried on each cross-context message) so a result lands on the correct item
+// even if the singleton activeQueueItemId has moved on; fall back to it otherwise.
+function resolveActiveItem() {
+  if (activeTaskId) {
+    const byTask = queueItems.find(item => item.taskId === activeTaskId);
+    if (byTask) return byTask;
+  }
+  return queueItems.find(item => item.id === activeQueueItemId);
 }
 
 function resultItemLabel(item, index) {
@@ -342,6 +360,7 @@ function renderQueue() {
       download.dataset.itemId = item.id;
       download.textContent = 'DL';
       download.title = t('title.download');
+      download.setAttribute('aria-label', t('title.download'));
       actions.appendChild(download);
 
       if (!item.isVariant) {
@@ -352,6 +371,7 @@ function renderQueue() {
         rework.dataset.itemId = item.id;
         rework.textContent = 'RW';
         rework.title = t('title.rework');
+        rework.setAttribute('aria-label', t('title.rework'));
         rework.disabled = isQueueRunning;
         actions.appendChild(rework);
       }
@@ -365,6 +385,7 @@ function renderQueue() {
       remove.dataset.itemId = item.id;
       remove.textContent = 'X';
       remove.title = t('title.remove');
+      remove.setAttribute('aria-label', t('title.remove'));
       actions.appendChild(remove);
     }
 
@@ -381,6 +402,7 @@ function renderQueue() {
 function updateActionState() {
   const completedCount = getCompletedItems().length;
   startBtn.disabled = isQueueRunning || getRunnableCount() === 0;
+  if (stopBtn) stopBtn.classList.toggle('hidden', !isQueueRunning);
   clearQueueBtn.disabled = isQueueRunning || queueItems.length === 0;
   downloadBtn.disabled = completedCount === 0;
   downloadAllBtn.disabled = completedCount === 0 || isDownloadingAll;
@@ -532,6 +554,35 @@ function startQueue() {
   processNextQueueItem();
 }
 
+function stopQueue() {
+  if (!isQueueRunning) return;
+
+  isQueueRunning = false;
+  clearTimeout(taskWatchdog);
+  taskWatchdog = null;
+
+  // Return the currently-processing item to 'pending' so the user can re-run it.
+  const active = resolveActiveItem();
+  if (active && active.status === 'processing') {
+    active.status = 'pending';
+    active.error = null;
+    active.taskId = null;
+  }
+
+  activeTaskId = null;
+  activeQueueItemId = null;
+
+  // Best-effort: tell the content script to abort any in-flight automation loop.
+  try {
+    chrome.runtime.sendMessage({ type: 'ABORT_AUTOMATION' }, () => void chrome.runtime.lastError);
+  } catch (_) { /* messaging unavailable */ }
+
+  logMessage(t('progress.ready'));
+  updateProgress(0, t('progress.ready'));
+  renderQueue();
+  updateActionState();
+}
+
 function processNextQueueItem() {
   if (!isQueueRunning) return;
 
@@ -575,10 +626,19 @@ function processNextQueueItem() {
 
     failActiveItem(t('err.workerComm', { msg: chrome.runtime.lastError.message }));
   });
+
+  // Guard against a task that never reports back (e.g. the content script hangs
+  // or the GPT tab is closed). If nothing completes/fails the item in time, fail it
+  // so the queue can advance instead of hanging forever.
+  taskWatchdog = setTimeout(() => {
+    failActiveItem(t('err.taskTimeout') || 'Task timed out');
+  }, WATCHDOG_MS);
 }
 
 function failActiveItem(errorText) {
-  const item = queueItems.find(candidate => candidate.id === activeQueueItemId);
+  clearTimeout(taskWatchdog);
+  taskWatchdog = null;
+  const item = resolveActiveItem();
   if (!item) return;
 
   item.status = 'error';
@@ -630,7 +690,9 @@ async function isLikelyBlankResult(dataUrl) {
 }
 
 async function completeActiveItem(imageUrls) {
-  const item = queueItems.find(candidate => candidate.id === activeQueueItemId);
+  clearTimeout(taskWatchdog);
+  taskWatchdog = null;
+  const item = resolveActiveItem();
   if (!item) return;
   if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
     failActiveItem(t('err.noResult'));
@@ -899,6 +961,7 @@ if (settingsToggle) {
 
 clearQueueBtn.addEventListener('click', clearQueue);
 startBtn.addEventListener('click', startQueue);
+if (stopBtn) stopBtn.addEventListener('click', stopQueue);
 
 queueList.addEventListener('click', async event => {
   const button = event.target.closest('button[data-action]');
@@ -959,7 +1022,10 @@ resultCard.addEventListener('click', event => {
 chrome.runtime.onMessage.addListener(message => {
   if (!activeTaskId || message.taskId !== activeTaskId) return;
 
-  const activeItem = queueItems.find(item => item.id === activeQueueItemId);
+  // Bind the message to the item carrying its taskId when possible, so progress and
+  // results land on the correct queue item; fall back to the active singleton.
+  const activeItem = (message.taskId && queueItems.find(item => item.taskId === message.taskId))
+    || queueItems.find(item => item.id === activeQueueItemId);
   if (!activeItem) return;
   const position = currentQueuePosition(activeItem.id);
 
@@ -989,14 +1055,18 @@ const langToggle = document.getElementById('lang-toggle');
 if (langToggle) {
   // Highlight the active button on load
   langToggle.querySelectorAll('.lang-opt').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.lang === currentLang);
+    const isActive = btn.dataset.lang === currentLang;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-pressed', String(isActive));
   });
   langToggle.addEventListener('click', e => {
     const btn = e.target.closest('.lang-opt[data-lang]');
     if (!btn) return;
     setLang(btn.dataset.lang);
     langToggle.querySelectorAll('.lang-opt').forEach(b => {
-      b.classList.toggle('active', b.dataset.lang === currentLang);
+      const isActive = b.dataset.lang === currentLang;
+      b.classList.toggle('active', isActive);
+      b.setAttribute('aria-pressed', String(isActive));
     });
   });
 }

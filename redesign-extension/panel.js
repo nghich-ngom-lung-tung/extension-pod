@@ -57,6 +57,9 @@ let queueItems = [];
 let activeTaskId = null;
 let activeQueueItemId = null;
 let isQueueRunning = false;
+let taskWatchdog = null;
+// content.js caps generation at ~12 min; allow extra slack before declaring a hang.
+const WATCHDOG_MS = 14 * 60 * 1000;
 let isDownloadingAll = false;
 let batchSettings = null;
 let selectedResultItemId = null;
@@ -75,6 +78,7 @@ const customPrompt = document.getElementById('custom-prompt');
 const targetWidthInput = document.getElementById('target-width');
 const targetHeightInput = document.getElementById('target-height');
 const startBtn = document.getElementById('start-btn');
+const stopBtn = document.getElementById('stop-btn');
 const processCard = document.getElementById('process-card');
 const processStatusText = document.getElementById('process-status-text');
 const processPercentText = document.getElementById('process-percent-text');
@@ -140,6 +144,10 @@ function refreshConnText() {
 function updateProgress(percent, statusText, isError = false) {
   const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
   progressBar.style.width = `${safePercent}%`;
+  const track = progressBar.parentElement;
+  if (track && track.getAttribute('role') === 'progressbar') {
+    track.setAttribute('aria-valuenow', String(safePercent));
+  }
   processPercentText.textContent = `${safePercent}%`;
   if (statusText != null) processStatusText.textContent = statusText;
 
@@ -417,6 +425,7 @@ function renderQueue() {
       download.dataset.itemId = item.id;
       download.textContent = 'DL';
       download.title = t('title.download');
+      download.setAttribute('aria-label', t('title.download'));
       actions.appendChild(download);
 
       if (!item.isVariant) {
@@ -427,6 +436,7 @@ function renderQueue() {
         rework.dataset.itemId = item.id;
         rework.textContent = 'RW';
         rework.title = t('title.rework');
+        rework.setAttribute('aria-label', t('title.rework'));
         rework.disabled = isQueueRunning;
         actions.appendChild(rework);
       }
@@ -440,6 +450,7 @@ function renderQueue() {
       remove.dataset.itemId = item.id;
       remove.textContent = 'X';
       remove.title = t('title.remove');
+      remove.setAttribute('aria-label', t('title.remove'));
       actions.appendChild(remove);
     }
 
@@ -463,7 +474,37 @@ function updateActionState() {
   modeSelect.disabled = isQueueRunning;
   targetWidthInput.disabled = isQueueRunning;
   targetHeightInput.disabled = isQueueRunning;
+  if (stopBtn) stopBtn.classList.toggle('hidden', !isQueueRunning);
   syncModeControls();
+}
+
+function stopQueue() {
+  if (!isQueueRunning) return;
+
+  clearTimeout(taskWatchdog);
+  taskWatchdog = null;
+  isQueueRunning = false;
+
+  const activeItem = (activeTaskId && queueItems.find(item => item.taskId === activeTaskId))
+    || queueItems.find(item => item.id === activeQueueItemId);
+  if (activeItem && activeItem.status === 'processing') {
+    activeItem.status = 'pending';
+    activeItem.error = null;
+    activeItem.taskId = null;
+  }
+
+  activeTaskId = null;
+  activeQueueItemId = null;
+
+  // Best-effort: tell the content script to abandon its current run.
+  try {
+    chrome.runtime.sendMessage({ type: 'ABORT_AUTOMATION' }, () => void chrome.runtime.lastError);
+  } catch (_) { /* messaging unavailable */ }
+
+  logMessage(t('log.stopped'));
+  updateProgress(0, t('progress.stopped'));
+  renderQueue();
+  updateActionState();
 }
 
 function fileToDataUrl(file) {
@@ -657,10 +698,19 @@ function processNextQueueItem() {
 
     failActiveItem(t('err.workerComm', { msg: chrome.runtime.lastError.message }));
   });
+
+  // Watchdog: if no DONE/PROGRESS-error ever resolves this item, fail it so the
+  // queue does not hang permanently.
+  taskWatchdog = setTimeout(() => {
+    failActiveItem(t('err.taskTimeout') || 'Task timed out');
+  }, WATCHDOG_MS);
 }
 
-function failActiveItem(errorText) {
-  const item = queueItems.find(candidate => candidate.id === activeQueueItemId);
+function failActiveItem(errorText, taskId = activeTaskId) {
+  clearTimeout(taskWatchdog);
+  taskWatchdog = null;
+  const item = (taskId && queueItems.find(candidate => candidate.taskId === taskId))
+    || queueItems.find(candidate => candidate.id === activeQueueItemId);
   if (!item) return;
 
   item.status = 'error';
@@ -672,11 +722,14 @@ function failActiveItem(errorText) {
   setTimeout(processNextQueueItem, 700);
 }
 
-function completeActiveItem(imageUrls) {
-  const item = queueItems.find(candidate => candidate.id === activeQueueItemId);
+function completeActiveItem(imageUrls, taskId = activeTaskId) {
+  clearTimeout(taskWatchdog);
+  taskWatchdog = null;
+  const item = (taskId && queueItems.find(candidate => candidate.taskId === taskId))
+    || queueItems.find(candidate => candidate.id === activeQueueItemId);
   if (!item) return;
   if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
-    failActiveItem(t('err.noResult'));
+    failActiveItem(t('err.noResult'), taskId);
     return;
   }
 
@@ -933,6 +986,7 @@ if (settingsToggle) {
 
 clearQueueBtn.addEventListener('click', clearQueue);
 startBtn.addEventListener('click', startQueue);
+if (stopBtn) stopBtn.addEventListener('click', stopQueue);
 
 modeSelect.addEventListener('change', () => {
   const editableItems = queueItems.filter(item => (
@@ -1048,7 +1102,8 @@ resultCard.addEventListener('click', event => {
 chrome.runtime.onMessage.addListener(message => {
   if (!activeTaskId || message.taskId !== activeTaskId) return;
 
-  const activeItem = queueItems.find(item => item.id === activeQueueItemId);
+  const activeItem = queueItems.find(item => item.taskId === message.taskId)
+    || queueItems.find(item => item.id === activeQueueItemId);
   if (!activeItem) return;
   const position = currentQueuePosition(activeItem.id);
 
@@ -1061,7 +1116,7 @@ chrome.runtime.onMessage.addListener(message => {
     updateProgress(percent, `[${position.label}] ${text}`, status === 'error');
 
     if (status === 'error') {
-      failActiveItem(text);
+      failActiveItem(text, message.taskId);
     }
     return;
   }
@@ -1069,7 +1124,7 @@ chrome.runtime.onMessage.addListener(message => {
   if (message.type === 'REDESIGN_DONE') {
     const imageUrls = message.imageUrls || (message.imageUrl ? [message.imageUrl] : []);
     updateProgress(100, t('progress.completed', { pos: position.label, n: imageUrls.length }));
-    completeActiveItem(imageUrls);
+    completeActiveItem(imageUrls, message.taskId);
   }
 });
 
@@ -1078,14 +1133,18 @@ const langToggle = document.getElementById('lang-toggle');
 if (langToggle) {
   // Highlight the active button on load
   langToggle.querySelectorAll('.lang-opt').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.lang === currentLang);
+    const isActive = btn.dataset.lang === currentLang;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-pressed', String(isActive));
   });
   langToggle.addEventListener('click', e => {
     const btn = e.target.closest('.lang-opt[data-lang]');
     if (!btn) return;
     setLang(btn.dataset.lang);
     langToggle.querySelectorAll('.lang-opt').forEach(b => {
-      b.classList.toggle('active', b.dataset.lang === currentLang);
+      const isActive = b.dataset.lang === currentLang;
+      b.classList.toggle('active', isActive);
+      b.setAttribute('aria-pressed', String(isActive));
     });
   });
 }

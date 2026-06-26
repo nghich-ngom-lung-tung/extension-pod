@@ -1,7 +1,38 @@
 /* ══════════════════════════════════════
-   Background Remover Pro
+   Mockup Luxury Pro
    Glassmorphism Luxury — Black & Gold
    ══════════════════════════════════════ */
+
+/* Self-hosted Fira Code (full latin) — no network call to Google Fonts on open.
+   Vietnamese tone glyphs fall through to the next family in --font-mono, as before. */
+@font-face {
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('assets/fonts/FiraCode-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('assets/fonts/FiraCode-Medium.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('assets/fonts/FiraCode-SemiBold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('assets/fonts/FiraCode-Bold.woff2') format('woff2');
+}
 
 :root {
   --bg-0: #060605;          /* deepest warm black */
@@ -546,44 +577,6 @@ body.iframe-body {
 
 .add-btn:hover:not(:disabled) {
   box-shadow: 0 0 22px rgba(109, 93, 252, 0.45);
-}
-
-/* Image Preview Overlay (legacy support) */
-.preview-overlay {
-  position: absolute;
-  inset: 0;
-  background: #09090b;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.preview-overlay img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-.clear-btn {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  background: rgba(255, 95, 86, 0.9);
-  color: #fff;
-  border: none;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  font-size: 0.9rem;
-  line-height: 18px;
-  text-align: center;
-  cursor: pointer;
-  box-shadow: 0 0 6px rgba(255, 95, 86, 0.4);
-  transition: background 0.2s;
-}
-
-.clear-btn:hover {
-  background: #ff5f56;
 }
 
 /* ── Queue panel ──────────────────────── */

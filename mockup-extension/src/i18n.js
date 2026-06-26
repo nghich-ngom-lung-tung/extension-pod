@@ -28,8 +28,6 @@
     'mk.label': { vi: 'Luxury Mockup', en: 'Luxury Mockup' },
     'mk.progress': { vi: 'Đang điền yêu cầu tạo mockup...', en: 'Filling the mockup request...' },
 
-    'count.one': { vi: 'ảnh', en: 'image' },
-    'count.multi': { vi: 'ảnh', en: 'images' },
     'count.hero': { vi: 'hero', en: 'hero' },
     'count.listing': { vi: 'listing set', en: 'listing set' },
     'count.proSet': { vi: 'pro set', en: 'pro set' },
@@ -76,6 +74,7 @@
     'queue.clear': { vi: 'XÓA', en: 'CLEAR' },
     'btn.addQueue': { vi: 'THÊM VÀO HÀNG ĐỢI', en: 'ADD TO QUEUE' },
     'btn.execute': { vi: 'TẠO MOCKUP HÀNG CHỜ', en: 'GENERATE MOCKUP QUEUE' },
+    'btn.stop': { vi: 'DỪNG', en: 'STOP' },
     'btn.download': { vi: 'TẢI MOCKUP PNG', en: 'DOWNLOAD MOCKUP PNG' },
     'btn.downloadAll': { vi: 'TẢI TẤT CẢ MOCKUP', en: 'DOWNLOAD ALL MOCKUPS' },
 
@@ -83,12 +82,15 @@
     'qstatus.completed': { vi: 'Hoàn thành', en: 'Completed' },
     'qstatus.queued': { vi: 'Đang chờ', en: 'Queued' },
     'qstatus.failed': { vi: 'Thất bại', en: 'Failed' },
-    'qstatus.variant': { vi: 'Biến thể #{n}', en: 'Variant #{n}' },
 
     'title.download': { vi: 'Tải mockup PNG', en: 'Download mockup PNG' },
     'title.rework': { vi: 'Tạo lại mockup cho job này', en: 'Generate this mockup job again' },
     'title.remove': { vi: 'Xóa khỏi hàng chờ', en: 'Remove from queue' },
     'title.selectResult': { vi: 'Chọn {name}', en: 'Select {name}' },
+
+    'popup.minimize': { vi: 'Thu nhỏ / Mở rộng', en: 'Minimize / Expand' },
+    'popup.maximize': { vi: 'Phóng to / Thu nhỏ', en: 'Maximize / Restore' },
+    'popup.close': { vi: 'Đóng', en: 'Close' },
 
     'progress.ready': { vi: 'SẴN SÀNG', en: 'READY' },
     'progress.starting': { vi: 'ĐANG KHỞI ĐỘNG HÀNG CHỜ...', en: 'STARTING QUEUE...' },
@@ -116,6 +118,7 @@
     'log.downloaded': { vi: 'Đã tải {name}.', en: 'Downloaded {name}.' },
     'log.downloadAllStart': { vi: 'Bắt đầu tải {n} mockup đã hoàn thành.', en: 'Downloading {n} completed mockup(s).' },
     'log.downloadAllDone': { vi: 'Download All hoàn tất: {ok}/{total} ảnh.', en: 'Download All done: {ok}/{total} image(s).' },
+    'log.stopped': { vi: 'Đã dừng theo yêu cầu người dùng.', en: 'Stopped by user.' },
 
     'prog.makingClean': { vi: 'Đang tạo bản upload sạch từ {fmt} ({size})...', en: 'Building clean upload copies from {fmt} ({size})...' },
     'prog.preparedCopies': { vi: 'Đã chuẩn bị {n} bản upload: {summary}.', en: 'Prepared {n} upload copies: {summary}.' },
@@ -128,7 +131,6 @@
     'prog.uploading': { vi: 'Đang tải ảnh lên ChatGPT...', en: 'Uploading images to ChatGPT...' },
     'prog.uploadingNamedSource': { vi: 'Đang tải ảnh {role} lên ChatGPT ({n}/{total})...', en: 'Uploading {role} image to ChatGPT ({n}/{total})...' },
     'prog.sending': { vi: 'Đang gửi yêu cầu tạo mockup...', en: 'Sending the mockup request...' },
-    'prog.waitingGen': { vi: 'Đang chờ ChatGPT tạo mockup...', en: 'Waiting for ChatGPT to create mockups...' },
     'prog.preparingShot': { vi: 'Đang chuẩn bị yêu cầu mockup {n}/{total}...', en: 'Preparing mockup request {n}/{total}...' },
     'prog.sendingShot': { vi: 'Đang gửi yêu cầu tạo mockup {n}/{total}...', en: 'Sending mockup request {n}/{total}...' },
     'prog.waitingShot': { vi: 'Đang chờ ChatGPT tạo mockup {n}/{total}...', en: 'Waiting for ChatGPT to create mockup {n}/{total}...' },
@@ -139,12 +141,10 @@
     'prog.uploadRejected': { vi: 'Upload bị từ chối. Đang refresh GPT rồi thử lại một lần...', en: 'Upload rejected. Refreshing the GPT tab and retrying once...' },
     'prog.opError': { vi: 'Thao tác lỗi: {msg}', en: 'Operation error: {msg}' },
     'prog.connecting': { vi: 'Đang kết nối content script (lần {i})...', en: 'Connecting to the content script (attempt {i})...' },
-    'prog.resettingChat': { vi: 'Đang mở cuộc trò chuyện GPT mới để tránh dính context cũ...', en: 'Opening a fresh GPT conversation to avoid stale context...' },
     'prog.refreshing': { vi: 'Đang refresh tab Mockup Luxury GPT...', en: 'Refreshing the Mockup Luxury GPT tab...' },
     'prog.refreshed': { vi: 'Tab GPT đã refresh. Đang gửi lại tác vụ...', en: 'GPT tab refreshed. Re-sending the task...' },
     'prog.checkingTabs': { vi: 'Đang kiểm tra các tab ChatGPT...', en: 'Checking ChatGPT tabs...' },
     'prog.locatedTab': { vi: 'Đã định vị tab Mockup Luxury GPT...', en: 'Located the Mockup Luxury GPT tab...' },
-    'prog.waitPageLoad': { vi: 'Đợi trang ChatGPT tải xong...', en: 'Waiting for the ChatGPT page to load...' },
     'prog.pageLoaded': { vi: 'Trang đã tải xong. Bắt đầu truyền dữ liệu...', en: 'Page loaded. Transferring image data...' },
     'prog.dataSent': { vi: 'Đã gửi dữ liệu. ChatGPT đang xử lý upload...', en: 'Data sent. ChatGPT is processing the upload...' },
     'prog.failed': { vi: 'Thất bại: {msg}', en: 'Failed: {msg}' },
@@ -172,7 +172,10 @@
     'err.tabClosed': { vi: 'Tab đã bị đóng.', en: 'The tab was closed.' },
     'err.pageLoadTimeout': { vi: 'Trang tải quá lâu hoặc không phản hồi.', en: 'The page took too long to load or is unresponsive.' },
     'err.refreshFail': { vi: 'Thất bại sau khi refresh GPT: {msg}', en: 'Failed after refreshing GPT: {msg}' },
-    'err.noSource': { vi: 'Không có ảnh nguồn để tạo mockup.', en: 'No source image was provided for mockup generation.' }
+    'err.noSource': { vi: 'Không có ảnh nguồn để tạo mockup.', en: 'No source image was provided for mockup generation.' },
+    'err.taskTimeout': { vi: 'Hết thời gian chờ — tác vụ bị treo', en: 'Timed out — task stalled' },
+    'err.wrongPage': { vi: 'Tab ChatGPT không ở đúng trang Custom GPT.', en: 'The ChatGPT tab is not on the correct Custom GPT page.' },
+    'err.imageConvertFailed': { vi: 'Không tải được ảnh kết quả', en: 'Failed to load result images' }
   };
 
   let lang = 'vi';

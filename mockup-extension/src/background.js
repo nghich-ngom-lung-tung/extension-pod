@@ -143,9 +143,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     sendResponse({ status: 'refreshing' });
   } else if (request.type === 'MOCKUP_DONE' && request.taskId) {
     storeResult(request.taskId, request.imageUrls || []);
+  } else if (request.type === 'ABORT_AUTOMATION') {
+    abortAutomation();
+    sendResponse({ status: 'aborting' });
   }
   return true; // Keep message channel open for async operations
 });
+
+// Relay an abort request to the ChatGPT tab so in-flight loops bail.
+async function abortAutomation() {
+  try {
+    const tabs = await chrome.tabs.query({ url: "*://chatgpt.com/*" });
+    for (const tab of tabs) {
+      if (!tab.id) continue;
+      try {
+        await chrome.tabs.sendMessage(tab.id, { type: 'ABORT_AUTOMATION' });
+      } catch (_) { /* tab without content script */ }
+    }
+  } catch (error) {
+    console.error("Abort relay error:", error);
+  }
+}
 
 async function refreshAndRetryTask(taskData) {
   try {

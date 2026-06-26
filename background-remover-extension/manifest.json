@@ -4,9 +4,6 @@
   "version": "1.0",
   "description": "Background Remover Pro - made by Sfrankie. Remove image backgrounds through a dedicated ChatGPT Custom GPT workflow.",
   "permissions": [
-    "activeTab",
-    "tabs",
-    "scripting",
     "storage",
     "unlimitedStorage",
     "downloads"
@@ -26,7 +23,7 @@
     "default_title": "Background Remover Pro - made by Sfrankie"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com"
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self'; font-src 'self'"
   },
   "icons": {
     "16": "assets/icon16.png",
@@ -52,12 +49,7 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "panel.html",
-        "panel.css",
-        "panel.js",
-        "src/i18n.js",
-        "src/remove-background.js",
-        "assets/*"
+        "panel.html"
       ],
       "matches": [
         "https://chatgpt.com/*"

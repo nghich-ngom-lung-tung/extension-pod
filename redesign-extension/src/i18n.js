@@ -27,6 +27,7 @@
       en: "e.g. --background black --add-text 'FRANKIE' --highly-detailed"
     },
     'btn.execute':     { vi: 'CHẠY HÀNG CHỜ',          en: 'EXECUTE QUEUE' },
+    'btn.stop':        { vi: 'DỪNG',                    en: 'STOP' },
     'btn.download':    { vi: 'TẢI PNG ĐÃ RESIZE',       en: 'DOWNLOAD RESIZED PNG' },
     'btn.downloadAll': { vi: 'TẢI TẤT CẢ ĐÃ XONG',      en: 'DOWNLOAD ALL COMPLETED' },
 
@@ -61,7 +62,11 @@
     'title.itemMode':     { vi: 'Chế độ cho ảnh này',    en: 'Operation mode for this image' },
     'title.itemStyle':    { vi: 'Style cho ảnh này',     en: 'Style for this image' },
     'title.selectResult': { vi: 'Chọn {name}',           en: 'Select {name}' },
-    'title.lang':         { vi: 'Ngôn ngữ',              en: 'Language' },
+
+    /* ── Popup chrome tooltips (content.js) ── */
+    'popup.minimize':     { vi: 'Thu nhỏ / Mở rộng',     en: 'Minimize / Expand' },
+    'popup.maximize':     { vi: 'Phóng to / Thu nhỏ',    en: 'Maximize / Restore' },
+    'popup.close':        { vi: 'Đóng',                  en: 'Close' },
 
     /* ── Panel progress (process-status-text) ── */
     'progress.ready':         { vi: 'SẴN SÀNG',                       en: 'READY' },
@@ -69,6 +74,7 @@
     'progress.preparing':     { vi: '[{pos}] ĐANG CHUẨN BỊ {name}',   en: '[{pos}] PREPARING {name}' },
     'progress.queueComplete': { vi: 'HOÀN TẤT HÀNG CHỜ {done}/{total}', en: 'QUEUE COMPLETE {done}/{total}' },
     'progress.completed':     { vi: '[{pos}] XONG ({n} ảnh)',         en: '[{pos}] COMPLETED ({n} images)' },
+    'progress.stopped':       { vi: 'ĐÃ DỪNG',                        en: 'STOPPED' },
 
     /* ── Panel logs ── */
     'log.invalidImage':    { vi: 'Vui lòng chọn file hình ảnh hợp lệ.', en: 'Please select valid image files.' },
@@ -91,6 +97,7 @@
     'log.appliedStyle':    { vi: 'Đã áp dụng {style} cho {n} ảnh đang chờ.', en: 'Applied {style} to {n} pending image(s).' },
     'log.changedMode':     { vi: '{name}: đổi mode thành {mode}.',     en: '{name}: mode changed to {mode}.' },
     'log.changedStyle':    { vi: '{name}: đổi style thành {style}.',   en: '{name}: style changed to {style}.' },
+    'log.stopped':         { vi: 'Đã dừng hàng chờ theo yêu cầu.',     en: 'Queue stopped on request.' },
 
     /* ── Panel errors ── */
     'err.readFile':        { vi: 'Không thể đọc file {name}',          en: 'Cannot read file {name}' },
@@ -100,6 +107,7 @@
     'err.canvasPng':       { vi: 'Không thể tạo PNG từ canvas.',       en: 'Cannot create PNG from canvas.' },
     'err.noResultExport':  { vi: 'Không có ảnh kết quả để xuất.',      en: 'No result image to export.' },
     'err.downloadStart':   { vi: 'Không thể bắt đầu download.',        en: 'Cannot start the download.' },
+    'err.taskTimeout':     { vi: 'Hết thời gian chờ — tác vụ bị treo', en: 'Timed out — task stalled' },
 
     /* ── content.js progress ── */
     'prog.makingClean':     { vi: 'Đang tạo các bản upload sạch từ {fmt} ({size})...', en: 'Building clean upload copies from {fmt} ({size})...' },
@@ -129,6 +137,7 @@
     'err.genTimeout':     { vi: 'Quá thời gian chờ ảnh kết quả xuất hiện (Timeout {min} phút).', en: 'Timed out waiting for result images (Timeout {min} min).' },
     'err.policyRefusal':  { vi: 'ChatGPT vẫn từ chối sau cả lần phục dựng an toàn. Đây là giới hạn policy của ảnh nguồn, không phải lỗi upload.', en: 'ChatGPT still refused after the safe reconstruction attempt. This is a source-image policy restriction, not an upload error.' },
     'err.superseded':     { vi: 'Tác vụ đã được thay thế bởi lần chạy mới.', en: 'Task was superseded by a newer run.' },
+    'err.imageConvertFailed': { vi: 'Không tải được ảnh kết quả',     en: 'Failed to load result images' },
     'err.unknown':        { vi: 'Lỗi không xác định',                  en: 'Unknown error' },
 
     /* ── background.js ── */

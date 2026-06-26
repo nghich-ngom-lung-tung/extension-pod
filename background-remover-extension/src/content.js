@@ -15,6 +15,7 @@ chrome.storage?.local?.get('sfrankie_lang', data => {
 chrome.storage?.onChanged?.addListener((changes, area) => {
   if (area === 'local' && changes.sfrankie_lang) {
     I18N?.setLang(changes.sfrankie_lang.newValue);
+    refreshPopupTitles();
   }
 });
 
@@ -213,7 +214,7 @@ async function fetchImageAsBase64(url) {
     });
   } catch (error) {
     void error;
-    return url; // Fallback to raw URL if fetch fails due to CORS
+    return null; // Drop the image rather than leak a raw cross-origin URL
   }
 }
 
@@ -888,6 +889,16 @@ async function waitForAllGeneratedImages(
 }
 
 let popupContainer = null;
+let popupControlButtons = null;
+
+// Re-apply localized tooltips to the popup chrome buttons so they switch live
+// when the language preference changes.
+function refreshPopupTitles() {
+  if (!popupControlButtons) return;
+  if (popupControlButtons.minBtn) popupControlButtons.minBtn.title = t('popup.minimize');
+  if (popupControlButtons.maxBtn) popupControlButtons.maxBtn.title = t('popup.maximize');
+  if (popupControlButtons.closeBtn) popupControlButtons.closeBtn.title = t('popup.close');
+}
 
 function createPopup() {
   if (!isTargetCustomGptPage() || document.getElementById(POPUP_ID)) return;
@@ -931,15 +942,33 @@ function createPopup() {
     user-select: none;
   `;
 
-  // Left Title
+  // Left Title (built with DOM nodes instead of innerHTML)
   const title = document.createElement('div');
-  title.innerHTML = `
-    <span style="color:#ffb627; margin-right:7px; text-shadow:0 0 10px rgba(255,182,39,0.5);">◆</span>
-    <span style="display:inline-flex; flex-direction:column; gap:1px; vertical-align:middle;">
-      <span>BG <b style="color:#ffb627;">REMOVER</b> PRO</span>
-      <span style="font-size:7px; color:#9a9180; letter-spacing:0.08em;">made by Sfrankie</span>
-    </span>
-  `;
+
+  const diamond = document.createElement('span');
+  diamond.textContent = '◆';
+  diamond.style.cssText = 'color:#ffb627; margin-right:7px; text-shadow:0 0 10px rgba(255,182,39,0.5);';
+
+  const titleStack = document.createElement('span');
+  titleStack.style.cssText = 'display:inline-flex; flex-direction:column; gap:1px; vertical-align:middle;';
+
+  const titleMain = document.createElement('span');
+  titleMain.appendChild(document.createTextNode('BG '));
+  const titleBold = document.createElement('b');
+  titleBold.textContent = 'REMOVER';
+  titleBold.style.color = '#ffb627';
+  titleMain.appendChild(titleBold);
+  titleMain.appendChild(document.createTextNode(' PRO'));
+
+  const titleSub = document.createElement('span');
+  titleSub.textContent = 'made by Sfrankie';
+  titleSub.style.cssText = 'font-size:7px; color:#9a9180; letter-spacing:0.08em;';
+
+  titleStack.appendChild(titleMain);
+  titleStack.appendChild(titleSub);
+  title.appendChild(diamond);
+  title.appendChild(titleStack);
+
   title.style.cssText = `
     font-size: 11px;
     color: #f6f2e9;
@@ -957,10 +986,24 @@ function createPopup() {
     align-items: center;
   `;
 
-  // Helper function to style individual control buttons
+  // Build a glyph span for a control button, optionally nudged vertically.
+  function glyphSpan(text, translateY = 0) {
+    const span = document.createElement('span');
+    span.textContent = text;
+    span.style.cssText = `transform: translateY(${translateY}px); display: inline-block;`;
+    return span;
+  }
+
+  // Replace a control button's glyph node without using innerHTML.
+  function setBtnGlyph(btn, node) {
+    btn.textContent = '';
+    btn.appendChild(node);
+  }
+
+  // Helper function to style individual control buttons. `content` is a DOM node.
   function createControlBtn(content, hoverBg, hoverColor) {
     const btn = document.createElement('span');
-    btn.innerHTML = content;
+    if (content) btn.appendChild(content);
     btn.style.cssText = `
       width: 24px;
       height: 24px;
@@ -998,47 +1041,49 @@ function createPopup() {
 
   // 1. Minimize Button
   let isMinimized = false;
-  const minBtn = createControlBtn('<span style="transform: translateY(-2px); display: inline-block;">_</span>', 'rgba(255, 182, 39, 0.15)', '#ffb627');
-  minBtn.title = "Thu nhỏ / Mở rộng";
+  const minBtn = createControlBtn(glyphSpan('_', -2), 'rgba(255, 182, 39, 0.15)', '#ffb627');
+  minBtn.title = t('popup.minimize');
   minBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     isMinimized = !isMinimized;
     if (isMinimized) {
       popupContainer.style.height = '40px';
       iframe.style.display = 'none';
-      minBtn.innerHTML = '<span style="transform: translateY(0px); display: inline-block;">□</span>';
+      setBtnGlyph(minBtn, glyphSpan('□', 0));
     } else {
       popupContainer.style.height = '640px';
       iframe.style.display = 'block';
-      minBtn.innerHTML = '<span style="transform: translateY(-2px); display: inline-block;">_</span>';
+      setBtnGlyph(minBtn, glyphSpan('_', -2));
     }
   });
 
   // 2. Maximize Button (toggles height/width for better editor view)
   let isMaximized = false;
-  const maxBtn = createControlBtn('▢', 'rgba(255, 182, 39, 0.15)', '#ffb627');
-  maxBtn.title = "Phóng to / Thu nhỏ";
+  const maxBtn = createControlBtn(glyphSpan('▢', 0), 'rgba(255, 182, 39, 0.15)', '#ffb627');
+  maxBtn.title = t('popup.maximize');
   maxBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     isMaximized = !isMaximized;
     if (isMaximized) {
       popupContainer.style.width = '550px';
       popupContainer.style.height = '800px';
-      maxBtn.innerHTML = '⧉'; // restore icon
+      setBtnGlyph(maxBtn, glyphSpan('⧉', 0)); // restore icon
     } else {
       popupContainer.style.width = '380px';
       popupContainer.style.height = isMinimized ? '40px' : '640px';
-      maxBtn.innerHTML = '▢';
+      setBtnGlyph(maxBtn, glyphSpan('▢', 0));
     }
   });
 
   // 3. Close Button
-  const closeBtn = createControlBtn('✕', 'rgba(255, 95, 86, 0.85)', '#fff');
-  closeBtn.title = "Đóng";
+  const closeBtn = createControlBtn(glyphSpan('✕', 0), 'rgba(255, 95, 86, 0.85)', '#fff');
+  closeBtn.title = t('popup.close');
   closeBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     togglePopup();
   });
+
+  popupControlButtons = { minBtn, maxBtn, closeBtn };
 
   btnGroup.appendChild(minBtn);
   btnGroup.appendChild(maxBtn);
@@ -1139,6 +1184,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.type === 'TOGGLE_POPUP') {
     togglePopup();
     sendResponse({ status: 'toggled' });
+  } else if (message.type === 'ABORT_AUTOMATION') {
+    // Bump the run id so any in-flight automation loop sees the mismatch and bails.
+    activeAutomationRunId += 1;
+    sendResponse({ status: 'aborted' });
   }
   return true;
 });
@@ -1219,10 +1268,20 @@ async function executeBackgroundRemoval(task, runId) {
     reportProgress(90, t('prog.extracting', { n: targetImageUrls.length }), 'info', task.taskId);
     reportProgress(95, t('prog.fetching', { n: targetImageUrls.length }), 'info', task.taskId);
 
-    // Convert each image to Base64 in parallel to bypass CORS
-    const base64Urls = await Promise.all(
+    // Convert each image to Base64 in parallel to bypass CORS. Keep only the ones
+    // that converted to a real data URL; never forward raw cross-origin URLs.
+    const settled = await Promise.allSettled(
       targetImageUrls.map(url => fetchImageAsBase64(url))
     );
+    const base64Urls = settled
+      .filter(result => result.status === 'fulfilled')
+      .map(result => result.value)
+      .filter(value => typeof value === 'string' && value.startsWith('data:'));
+
+    if (base64Urls.length === 0) {
+      reportProgress(0, t('err.imageConvertFailed'), 'error', task.taskId);
+      return;
+    }
 
     // Send all images back to panel
     chrome.runtime.sendMessage({

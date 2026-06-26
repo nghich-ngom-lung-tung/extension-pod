@@ -116,6 +116,21 @@ async function ensureGptTab() {
   return tabId;
 }
 
+// Best-effort: tell the content script in the open Custom GPT tab to abandon its
+// current automation run. Does not open a tab if none exists.
+async function relayAbortToGptTab() {
+  try {
+    const tabs = await chrome.tabs.query({ url: "*://chatgpt.com/*" });
+    const targetTab = tabs.find(tab => (
+      tab.url && tab.url.includes("g-6a35863807348191b5ab47d8665a57f1")
+    ));
+    if (!targetTab) return;
+    await chrome.tabs.sendMessage(targetTab.id, { type: 'ABORT_AUTOMATION' });
+  } catch (err) {
+    console.log("Abort relay skipped:", err.message);
+  }
+}
+
 async function waitForTabComplete(tabId, timeoutMs = 60000) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
@@ -139,6 +154,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     sendResponse({ status: 'refreshing' });
   } else if (request.type === 'REDESIGN_DONE' && request.taskId) {
     storeResult(request.taskId, request.imageUrls || []);
+  } else if (request.type === 'ABORT_AUTOMATION') {
+    relayAbortToGptTab();
+    sendResponse({ status: 'aborting' });
   }
   return true; // Keep message channel open for async operations
 });

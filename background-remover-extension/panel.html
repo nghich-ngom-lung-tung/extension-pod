@@ -3,9 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <title>Background Remover Pro - made by Sfrankie</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="panel.css">
 </head>
 <body class="iframe-body">
@@ -27,8 +24,8 @@
         <span class="val" id="conn-text">SẴN SÀNG</span>
       </div>
       <div id="lang-toggle" class="lang-toggle" role="group" aria-label="Language">
-        <button type="button" class="lang-opt" data-lang="vi">VI</button>
-        <button type="button" class="lang-opt" data-lang="en">EN</button>
+        <button type="button" class="lang-opt" data-lang="vi" aria-pressed="false">VI</button>
+        <button type="button" class="lang-opt" data-lang="en" aria-pressed="false">EN</button>
       </div>
     </div>
   </header>
@@ -101,6 +98,12 @@
       <span data-i18n="btn.execute">EXECUTE QUEUE</span>
     </button>
 
+    <!-- Stop / Cancel Button (hidden unless a queue run is active) -->
+    <button id="stop-btn" type="button" class="execute-btn stop-btn hidden">
+      <span class="btn-ic">■</span>
+      <span data-i18n="btn.stop">STOP</span>
+    </button>
+
     <!-- Execution Logs & Progress Console -->
     <div id="process-card" class="result-panel glass hidden">
       <div class="cmd-line">
@@ -109,9 +112,9 @@
         <span class="cursor-blink" id="process-percent-text" style="margin-left: auto;">0%</span>
       </div>
       <div class="progress-track">
-        <div id="progress-bar" class="progress-fill" style="width: 0%;"></div>
+        <div id="progress-bar" class="progress-fill" style="width: 0%;" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
       </div>
-      <div class="log-console" id="log-console">
+      <div class="log-console" id="log-console" aria-live="polite">
         <!-- Logs will print here -->
       </div>
     </div>

@@ -3,9 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <title>Mockup Luxury Pro - made by Sfrankie</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="panel.css">
 </head>
 <body class="iframe-body">
@@ -195,16 +192,18 @@
       <span data-i18n="btn.execute">TẠO MOCKUP HÀNG CHỜ</span>
     </button>
 
+    <button id="stop-btn" class="execute-btn stop-btn hidden" type="button" data-i18n="btn.stop">DỪNG</button>
+
     <div id="process-card" class="result-panel glass hidden">
       <div class="cmd-line">
         <span class="prompt">▸</span>
         <span class="cmd-label" id="process-status-text">RUNNING AUTOMATION...</span>
         <span class="cursor-blink process-percent" id="process-percent-text">0%</span>
       </div>
-      <div class="progress-track">
+      <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
         <div id="progress-bar" class="progress-fill"></div>
       </div>
-      <div class="log-console" id="log-console"></div>
+      <div class="log-console" id="log-console" aria-live="polite"></div>
     </div>
 
     <div id="result-card" class="result-panel glass hidden">

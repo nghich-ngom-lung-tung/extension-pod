@@ -9,28 +9,15 @@
     'queue.heading': { vi: 'HÀNG CHỜ XỬ LÝ', en: 'PROCESSING QUEUE' },
     'queue.clear': { vi: 'XÓA', en: 'CLEAR' },
     'settings.title': { vi: 'THIẾT LẬP', en: 'SETTINGS' },
-    'label.mode': { vi: 'CHẾ ĐỘ XỬ LÝ', en: 'OPERATION MODE' },
-    'label.defaultStyle': { vi: 'HỒ SƠ LÀM SẠCH VIỀN', en: 'EDGE CLEANUP PROFILE' },
-    'label.customPrompt': { vi: 'YÊU CẦU XÓA NỀN BỔ SUNG', en: 'EXTRA REMOVAL INSTRUCTIONS' },
     'label.resolution': { vi: 'ĐỘ PHÂN GIẢI XUẤT PNG', en: 'PNG EXPORT RESOLUTION' },
     'label.output': { vi: 'XEM TRƯỚC KẾT QUẢ', en: 'OUTPUT PREVIEW' },
-    'placeholder.customPrompt': {
-      vi: 'vd: giữ tóc, xóa bóng sàn, giữ khói',
-      en: 'e.g. preserve hair, remove floor shadow'
-    },
     'btn.execute': { vi: 'XÓA NỀN HÀNG CHỜ', en: 'REMOVE BACKGROUNDS' },
+    'btn.stop': { vi: 'DỪNG', en: 'STOP' },
     'btn.download': { vi: 'TẢI PNG TRONG SUỐT', en: 'DOWNLOAD TRANSPARENT PNG' },
     'btn.downloadAll': { vi: 'TẢI TẤT CẢ ẢNH ĐÃ XONG', en: 'DOWNLOAD ALL COMPLETED' },
 
-    'mode.remove': { vi: 'Xóa nền ảnh', en: 'Remove Background' },
-    'modeShort.remove': { vi: 'Xóa nền', en: 'Remove Background' },
     'br.label': { vi: 'Xóa nền', en: 'Remove Background' },
     'br.progress': { vi: 'Đang dùng hướng dẫn GPT mặc định, không gửi prompt bổ sung...', en: 'Using the GPT default instructions without extra prompt text...' },
-
-    'style.balanced': { vi: 'Cân bằng', en: 'Balanced Cleanup' },
-    'style.fine': { vi: 'Giữ chi tiết nhỏ', en: 'Preserve Fine Detail' },
-    'style.hard': { vi: 'Viền cứng sạch', en: 'Clean Hard Edges' },
-    'style.soft': { vi: 'Viền mềm tự nhiên', en: 'Soft Natural Edges' },
 
     'qstatus.processing': { vi: 'Đang xử lý', en: 'Processing' },
     'qstatus.completed': { vi: 'Hoàn thành', en: 'Completed' },
@@ -41,9 +28,11 @@
     'title.download': { vi: 'Tải PNG trong suốt', en: 'Download transparent PNG' },
     'title.rework': { vi: 'Xử lý lại ảnh nguồn này', en: 'Process this source image again' },
     'title.remove': { vi: 'Xóa khỏi hàng chờ', en: 'Remove from queue' },
-    'title.itemMode': { vi: 'Chế độ cho ảnh này', en: 'Operation mode for this image' },
-    'title.itemStyle': { vi: 'Hồ sơ làm sạch viền', en: 'Edge cleanup profile' },
     'title.selectResult': { vi: 'Chọn {name}', en: 'Select {name}' },
+
+    'popup.minimize': { vi: 'Thu nhỏ / Mở rộng', en: 'Minimize / Expand' },
+    'popup.maximize': { vi: 'Phóng to / Thu nhỏ', en: 'Maximize / Restore' },
+    'popup.close': { vi: 'Đóng', en: 'Close' },
 
     'progress.ready': { vi: 'SẴN SÀNG', en: 'READY' },
     'progress.starting': { vi: 'ĐANG KHỞI ĐỘNG HÀNG CHỜ...', en: 'STARTING QUEUE...' },
@@ -67,10 +56,6 @@
     'log.downloaded': { vi: 'Đã tải {name}.', en: 'Downloaded {name}.' },
     'log.downloadAllStart': { vi: 'Bắt đầu tải {n} ảnh đã hoàn thành.', en: 'Downloading {n} completed image(s).' },
     'log.downloadAllDone': { vi: 'Download All hoàn tất: {ok}/{total} ảnh.', en: 'Download All done: {ok}/{total} image(s).' },
-    'log.appliedMode': { vi: 'Đã áp dụng {mode} cho {n} ảnh đang chờ.', en: 'Applied {mode} to {n} pending image(s).' },
-    'log.appliedStyle': { vi: 'Đã áp dụng {style} cho {n} ảnh đang chờ.', en: 'Applied {style} to {n} pending image(s).' },
-    'log.changedMode': { vi: '{name}: đổi chế độ thành {mode}.', en: '{name}: mode changed to {mode}.' },
-    'log.changedStyle': { vi: '{name}: đổi hồ sơ thành {style}.', en: '{name}: profile changed to {style}.' },
 
     'prog.makingClean': { vi: 'Đang tạo bản upload sạch từ {fmt} ({size})...', en: 'Building clean upload copies from {fmt} ({size})...' },
     'prog.preparedCopies': { vi: 'Đã chuẩn bị {n} bản upload: {summary}.', en: 'Prepared {n} upload copies: {summary}.' },
@@ -116,7 +101,9 @@
     'err.noContentScript': { vi: 'Không thể kết nối content script trên ChatGPT.', en: 'Could not establish a connection to the ChatGPT content script.' },
     'err.tabClosed': { vi: 'Tab đã bị đóng.', en: 'The tab was closed.' },
     'err.pageLoadTimeout': { vi: 'Trang tải quá lâu hoặc không phản hồi.', en: 'The page took too long to load or is unresponsive.' },
-    'err.refreshFail': { vi: 'Thất bại sau khi refresh GPT: {msg}', en: 'Failed after refreshing GPT: {msg}' }
+    'err.refreshFail': { vi: 'Thất bại sau khi refresh GPT: {msg}', en: 'Failed after refreshing GPT: {msg}' },
+    'err.taskTimeout': { vi: 'Hết thời gian chờ — tác vụ bị treo', en: 'Timed out — task stalled' },
+    'err.imageConvertFailed': { vi: 'Không tải được ảnh kết quả', en: 'Failed to load result images' }
   };
 
   let lang = 'vi';
