@@ -15,7 +15,7 @@
       <img src="assets/icon48.png" alt="Logo" class="brand-icon">
       <div class="brand-copy">
         <span class="brand-name">BG <b>REMOVER</b> PRO</span>
-        <span class="brand-sub">made by Sfrankie <span class="version-badge">v1.0</span></span>
+        <span class="brand-sub">made by Sfrankie <span class="version-badge">v1.1.0</span></span>
       </div>
     </div>
     <div class="topbar-right">
@@ -79,14 +79,30 @@
           <div class="field-row">
             <div class="resolution-input-wrap">
               <span class="res-lbl">W:</span>
-              <input type="number" id="target-width" value="3000" min="100" max="10000">
+              <input type="number" id="target-width" value="4500" min="100" max="10000">
               <span class="res-unit">px</span>
             </div>
             <div class="resolution-input-wrap">
               <span class="res-lbl">H:</span>
-              <input type="number" id="target-height" value="3600" min="100" max="10000">
+              <input type="number" id="target-height" value="5400" min="100" max="10000">
               <span class="res-unit">px</span>
             </div>
+          </div>
+          <div class="field-row bg-mode-row">
+            <label class="resolution-input-wrap mode-wrap">
+              <span class="res-lbl">MODE:</span>
+              <select id="removal-mode">
+                <option value="local-auto">LOCAL AUTO</option>
+                <option value="manual">MAGIC WAND</option>
+                <option value="local-global">GLOBAL COLOR</option>
+                <option value="local-soft">SOFT KNOCKOUT</option>
+                <option value="ai">AI / CUSTOM GPT</option>
+              </select>
+            </label>
+            <label class="resolution-input-wrap mode-wrap">
+              <span class="res-lbl">TOL:</span>
+              <input type="number" id="removal-tolerance" value="70" min="10" max="200">
+            </label>
           </div>
         </div>
       </div>
@@ -134,8 +150,27 @@
       </button>
     </div>
   </div>
+  <div id="manual-editor" class="editor-modal hidden" role="dialog" aria-modal="true" aria-label="Magic Wand editor">
+    <div class="editor-dialog glass">
+      <div class="editor-head">
+        <span>MAGIC WAND EDITOR</span>
+        <button id="editor-cancel" type="button" class="queue-action-btn">X</button>
+      </div>
+      <p class="editor-help">Click màu nền cần xóa. Có thể click nhiều lần.</p>
+      <div class="editor-canvas-wrap"><canvas id="editor-canvas"></canvas></div>
+      <div class="editor-controls">
+        <label>Tolerance <input id="editor-tolerance" type="range" min="10" max="200" value="70"><span id="editor-tolerance-value">70</span></label>
+        <label><input id="editor-contiguous" type="checkbox" checked> Contiguous</label>
+      </div>
+      <div class="editor-actions">
+        <button id="editor-undo" type="button" class="queue-clear-btn">UNDO</button>
+        <button id="editor-confirm" type="button" class="execute-btn">USE PNG</button>
+      </div>
+    </div>
+  </div>
   <script src="src/i18n.js"></script>
   <script src="src/remove-background.js"></script>
+  <script src="src/background-removal-core.js"></script>
   <script src="panel.js"></script>
 </body>
 </html>

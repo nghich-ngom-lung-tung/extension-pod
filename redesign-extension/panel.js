@@ -612,8 +612,8 @@ function clearQueue() {
 }
 
 function getBatchSettings() {
-  const width = parseInt(targetWidthInput.value, 10) || 3000;
-  const height = parseInt(targetHeightInput.value, 10) || 3600;
+  const width = parseInt(targetWidthInput.value, 10) || 4500;
+  const height = parseInt(targetHeightInput.value, 10) || 5400;
 
   return {
     width,
@@ -823,8 +823,8 @@ async function createResizedPngBlob(item) {
     throw new Error(t('err.noResultExport'));
   }
 
-  const width = item.outputWidth || parseInt(targetWidthInput.value, 10) || 3000;
-  const height = item.outputHeight || parseInt(targetHeightInput.value, 10) || 3600;
+  const width = item.outputWidth || parseInt(targetWidthInput.value, 10) || 4500;
+  const height = item.outputHeight || parseInt(targetHeightInput.value, 10) || 5400;
   const img = await loadImage(item.resultDataUrl);
   const canvas = document.createElement('canvas');
   canvas.width = width;
@@ -859,8 +859,8 @@ async function createResizedPngBlob(item) {
 }
 
 function outputFileName(item) {
-  const width = item.outputWidth || parseInt(targetWidthInput.value, 10) || 3000;
-  const height = item.outputHeight || parseInt(targetHeightInput.value, 10) || 3600;
+  const width = item.outputWidth || parseInt(targetWidthInput.value, 10) || 4500;
+  const height = item.outputHeight || parseInt(targetHeightInput.value, 10) || 5400;
   const originalName = item.file?.name || 'redesign.png';
   const dotIndex = originalName.lastIndexOf('.');
   const baseName = dotIndex > 0 ? originalName.slice(0, dotIndex) : originalName;

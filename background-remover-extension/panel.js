@@ -54,6 +54,8 @@ const queueCount = document.getElementById('queue-count');
 const clearQueueBtn = document.getElementById('clear-queue-btn');
 const targetWidthInput = document.getElementById('target-width');
 const targetHeightInput = document.getElementById('target-height');
+const removalModeSelect = document.getElementById('removal-mode');
+const removalToleranceInput = document.getElementById('removal-tolerance');
 const startBtn = document.getElementById('start-btn');
 const stopBtn = document.getElementById('stop-btn');
 const processCard = document.getElementById('process-card');
@@ -66,6 +68,14 @@ const downloadBtn = document.getElementById('download-btn');
 const downloadAllBtn = document.getElementById('download-all-btn');
 const connDot = document.getElementById('conn-dot');
 const connText = document.getElementById('conn-text');
+const manualEditor = document.getElementById('manual-editor');
+const editorCanvas = document.getElementById('editor-canvas');
+const editorTolerance = document.getElementById('editor-tolerance');
+const editorToleranceValue = document.getElementById('editor-tolerance-value');
+const editorContiguous = document.getElementById('editor-contiguous');
+const editorUndo = document.getElementById('editor-undo');
+const editorConfirm = document.getElementById('editor-confirm');
+const editorCancel = document.getElementById('editor-cancel');
 
 function createId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -409,6 +419,8 @@ function updateActionState() {
 
   targetWidthInput.disabled = isQueueRunning;
   targetHeightInput.disabled = isQueueRunning;
+  removalModeSelect.disabled = isQueueRunning;
+  removalToleranceInput.disabled = isQueueRunning;
 }
 
 function fileToDataUrl(file) {
@@ -437,7 +449,7 @@ async function addFiles(fileList) {
         file,
         fileDataUrl,
         resultDataUrl: null,
-        mode: BACKGROUND_REMOVER.mode,
+        mode: removalModeSelect.value,
         styleKey: 'balanced',
         status: 'pending',
         error: null,
@@ -485,7 +497,7 @@ function reworkQueueItem(itemId) {
 
   item.taskId = null;
   item.resultDataUrl = null;
-  item.mode = BACKGROUND_REMOVER.mode;
+  item.mode = removalModeSelect.value;
   item.styleKey = 'balanced';
   item.status = 'pending';
   item.error = null;
@@ -516,12 +528,14 @@ function clearQueue() {
 }
 
 function getBatchSettings() {
-  const width = parseInt(targetWidthInput.value, 10) || 3000;
-  const height = parseInt(targetHeightInput.value, 10) || 3600;
+  const width = parseInt(targetWidthInput.value, 10) || 4500;
+  const height = parseInt(targetHeightInput.value, 10) || 5400;
 
   return {
     width,
-    height
+    height,
+    removalMode: removalModeSelect.value,
+    tolerance: Math.max(10, Math.min(200, parseInt(removalToleranceInput.value, 10) || 70))
   };
 }
 
@@ -551,13 +565,134 @@ function startQueue() {
   updateProgress(0, t('progress.starting'));
   logMessage(t('log.startProcessing', { n: queueItems.filter(item => item.status === 'pending').length }));
   renderQueue();
+
   processNextQueueItem();
 }
+
+async function processLocalRemoval(item, position) {
+  try {
+    if (batchSettings.removalMode === 'manual') {
+      const manualDataUrl = await openManualEditor(item.fileDataUrl, batchSettings.tolerance);
+      updateProgress(100, `[${position.label}] Hoàn tất Magic Wand.`);
+      await completeActiveItem([manualDataUrl]);
+      return;
+    }
+    updateProgress(20, `[${position.label}] Đang phân tích màu nền...`);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const img = await loadImage(item.fileDataUrl);
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d', { alpha: true, willReadFrequently: true });
+    ctx.drawImage(img, 0, 0);
+    const source = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const result = batchSettings.removalMode === 'local-soft'
+      ? globalThis.SfrankieBackgroundCore.softKnockout(source)
+      : globalThis.SfrankieBackgroundCore.autoHardCut(source, {
+          threshold: batchSettings.tolerance,
+          feather: Math.max(8, Math.round(batchSettings.tolerance * 0.3)),
+          contiguous: batchSettings.removalMode !== 'local-global'
+        });
+    ctx.putImageData(result.imageData, 0, 0);
+    const label = batchSettings.removalMode === 'local-soft'
+      ? 'Soft Knockout'
+      : (batchSettings.removalMode === 'local-global' ? 'Global Color' : 'Local Auto');
+    logMessage(`${label}: độ tin cậy nền ${Math.round(result.confidence * 100)}%`, result.confidence >= 0.55 ? 'success' : 'info');
+    updateProgress(85, `[${position.label}] Đang tạo PNG trong suốt...`);
+    const dataUrl = canvas.toDataURL('image/png');
+    updateProgress(100, `[${position.label}] Hoàn tất xử lý local.`);
+    await completeActiveItem([dataUrl]);
+  } catch (error) {
+    if (!isQueueRunning) return;
+    failActiveItem(error.message || String(error));
+  }
+}
+
+let editorSession = null;
+
+async function openManualEditor(dataUrl, tolerance) {
+  const img = await loadImage(dataUrl);
+  editorCanvas.width = img.naturalWidth;
+  editorCanvas.height = img.naturalHeight;
+  const ctx = editorCanvas.getContext('2d', { alpha: true, willReadFrequently: true });
+  ctx.clearRect(0, 0, editorCanvas.width, editorCanvas.height);
+  ctx.drawImage(img, 0, 0);
+  const original = ctx.getImageData(0, 0, editorCanvas.width, editorCanvas.height);
+  editorTolerance.value = String(tolerance);
+  editorToleranceValue.textContent = String(tolerance);
+  editorContiguous.checked = true;
+  editorUndo.disabled = true;
+  manualEditor.classList.remove('hidden');
+  updateProgress(30, 'Magic Wand: click vào vùng nền cần xóa.');
+  return new Promise((resolve, reject) => {
+    editorSession = { ctx, original, operations: [], resolve, reject };
+  });
+}
+
+function replayEditorOperations() {
+  if (!editorSession) return;
+  let current = new ImageData(new Uint8ClampedArray(editorSession.original.data), editorSession.original.width, editorSession.original.height);
+  for (const operation of editorSession.operations) {
+    current = globalThis.SfrankieBackgroundCore.magicWand(current, operation.x, operation.y, operation.options);
+  }
+  editorSession.ctx.putImageData(current, 0, 0);
+  editorUndo.disabled = editorSession.operations.length === 0;
+}
+
+editorTolerance.addEventListener('input', () => {
+  editorToleranceValue.textContent = editorTolerance.value;
+});
+
+editorCanvas.addEventListener('pointerdown', event => {
+  if (!editorSession) return;
+  event.preventDefault();
+  const rect = editorCanvas.getBoundingClientRect();
+  const x = Math.floor((event.clientX - rect.left) * editorCanvas.width / rect.width);
+  const y = Math.floor((event.clientY - rect.top) * editorCanvas.height / rect.height);
+  editorSession.operations.push({
+    x,
+    y,
+    options: {
+      threshold: parseInt(editorTolerance.value, 10) || 70,
+      contiguous: editorContiguous.checked
+    }
+  });
+  replayEditorOperations();
+});
+
+editorUndo.addEventListener('click', () => {
+  if (!editorSession || editorSession.operations.length === 0) return;
+  editorSession.operations.pop();
+  replayEditorOperations();
+});
+
+editorConfirm.addEventListener('click', () => {
+  if (!editorSession) return;
+  const { resolve } = editorSession;
+  const dataUrl = editorCanvas.toDataURL('image/png');
+  editorSession = null;
+  manualEditor.classList.add('hidden');
+  resolve(dataUrl);
+});
+
+editorCancel.addEventListener('click', () => {
+  if (!editorSession) return;
+  const { reject } = editorSession;
+  editorSession = null;
+  manualEditor.classList.add('hidden');
+  reject(new Error('Đã hủy Magic Wand.'));
+});
 
 function stopQueue() {
   if (!isQueueRunning) return;
 
   isQueueRunning = false;
+  if (editorSession) {
+    const { reject } = editorSession;
+    editorSession = null;
+    manualEditor.classList.add('hidden');
+    reject(new Error('Đã dừng Magic Wand.'));
+  }
   clearTimeout(taskWatchdog);
   taskWatchdog = null;
 
@@ -605,13 +740,18 @@ function processNextQueueItem() {
   logMessage(t('log.itemStart', { pos: position.label, name: nextItem.file.name }));
   renderQueue();
 
+  if (batchSettings.removalMode !== 'ai') {
+    processLocalRemoval(nextItem, position);
+    return;
+  }
+
   const taskData = {
     type: 'START_BACKGROUND_TASK',
     taskId: nextItem.taskId,
     fileDataUrl: nextItem.fileDataUrl,
     fileName: nextItem.file.name,
     fileType: nextItem.file.type,
-    mode: nextItem.mode || BACKGROUND_REMOVER.mode,
+    mode: BACKGROUND_REMOVER.mode,
     stylePrompt: '',
     customPrompt: '',
     width: batchSettings.width,
@@ -811,8 +951,8 @@ async function createResizedPngBlob(item) {
     throw new Error(t('err.noResultExport'));
   }
 
-  const width = item.outputWidth || parseInt(targetWidthInput.value, 10) || 3000;
-  const height = item.outputHeight || parseInt(targetHeightInput.value, 10) || 3600;
+  const width = item.outputWidth || parseInt(targetWidthInput.value, 10) || 4500;
+  const height = item.outputHeight || parseInt(targetHeightInput.value, 10) || 5400;
   const img = await loadImage(item.resultDataUrl);
   const canvas = document.createElement('canvas');
   canvas.width = width;
@@ -821,24 +961,33 @@ async function createResizedPngBlob(item) {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
-  const safeMargin = 0.05;
+  const sourceCanvas = document.createElement('canvas');
+  sourceCanvas.width = img.naturalWidth;
+  sourceCanvas.height = img.naturalHeight;
+  const sourceCtx = sourceCanvas.getContext('2d', { alpha: true, willReadFrequently: true });
+  sourceCtx.drawImage(img, 0, 0);
+  const sourceData = sourceCtx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+  const bounds = globalThis.SfrankieBackgroundCore.findAlphaBounds(sourceData) || {
+    x: 0, y: 0, width: img.naturalWidth, height: img.naturalHeight
+  };
+  const safeMargin = 0.02;
   const availableWidth = width * (1 - safeMargin * 2);
   const availableHeight = height * (1 - safeMargin * 2);
-  const scale = Math.min(availableWidth / img.naturalWidth, availableHeight / img.naturalHeight);
-  const drawWidth = img.naturalWidth * scale;
-  const drawHeight = img.naturalHeight * scale;
+  const scale = Math.min(availableWidth / bounds.width, availableHeight / bounds.height);
+  const drawWidth = bounds.width * scale;
+  const drawHeight = bounds.height * scale;
   const drawX = (width - drawWidth) / 2;
   const drawY = (height - drawHeight) / 2;
 
   ctx.clearRect(0, 0, width, height);
-  ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+  ctx.drawImage(img, bounds.x, bounds.y, bounds.width, bounds.height, drawX, drawY, drawWidth, drawHeight);
 
   return canvasToNativePngBlob(canvas);
 }
 
 function outputFileName(item) {
-  const width = item.outputWidth || parseInt(targetWidthInput.value, 10) || 3000;
-  const height = item.outputHeight || parseInt(targetHeightInput.value, 10) || 3600;
+  const width = item.outputWidth || parseInt(targetWidthInput.value, 10) || 4500;
+  const height = item.outputHeight || parseInt(targetHeightInput.value, 10) || 5400;
   const originalName = item.file?.name || 'removed-background.png';
   const dotIndex = originalName.lastIndexOf('.');
   const baseName = dotIndex > 0 ? originalName.slice(0, dotIndex) : originalName;

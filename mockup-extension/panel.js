@@ -190,8 +190,8 @@ function getSettings() {
     customColor: customColor.value.trim(),
     sceneStyle: sceneSelect.value,
     customContext: customContext.value.trim(),
-    outputWidth: clampDimension(parseInt(targetWidthInput.value, 10) || 3000),
-    outputHeight: clampDimension(parseInt(targetHeightInput.value, 10) || 3000)
+    outputWidth: clampDimension(parseInt(targetWidthInput.value, 10) || 4096),
+    outputHeight: clampDimension(parseInt(targetHeightInput.value, 10) || 4096)
   };
 }
 
@@ -623,8 +623,8 @@ function canvasToPngBlob(canvas) {
 
 async function createResizedPngBlob(result) {
   if (!result?.url) throw new Error(t('err.noResultExport'));
-  const width = result.item.outputWidth || parseInt(targetWidthInput.value, 10) || 3000;
-  const height = result.item.outputHeight || parseInt(targetHeightInput.value, 10) || 3000;
+  const width = result.item.outputWidth || parseInt(targetWidthInput.value, 10) || 4096;
+  const height = result.item.outputHeight || parseInt(targetHeightInput.value, 10) || 4096;
   const img = await loadImage(result.url);
   const canvas = document.createElement('canvas');
   canvas.width = width;
@@ -651,8 +651,8 @@ function outputFileName(result) {
   const baseName = dotIndex > 0 ? originalName.slice(0, dotIndex) : originalName;
   const safeName = baseName.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').replace(/\s+/g, '_');
   const runSuffix = String(item.taskId || item.id || Date.now()).replace(/[^A-Za-z0-9_-]+/g, '').slice(-8);
-  const width = item.outputWidth || parseInt(targetWidthInput.value, 10) || 3000;
-  const height = item.outputHeight || parseInt(targetHeightInput.value, 10) || 3000;
+  const width = item.outputWidth || parseInt(targetWidthInput.value, 10) || 4096;
+  const height = item.outputHeight || parseInt(targetHeightInput.value, 10) || 4096;
   return `GPT_Mockup_Luxury/mockup_${safeName}_${item.sceneStyle}_${runSuffix}_v${result.index + 1}_${width}x${height}.png`;
 }
 
